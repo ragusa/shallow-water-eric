@@ -207,11 +207,21 @@ CONTAINS
        bath = -h0*( 1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2 )
     CASE(12) ! planar surface in a 2d paraboloid with coriolis force (Eric T.)
         inputs%gravity = 9.81d0
-        a=3.d0
-        h0=0.5d0
-        hL = 0.d0 ! L = 0 for this case since disk is centered at the origin
-        max_water_h = 6.d0
-        bath = -h0*(1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2)
+        ! a=3.d0
+        ! h0=0.5d0
+        ! hL = 0.d0 ! L = 0 for this case since disk is centered at the origin
+        ! max_water_h = 6.d0
+        ! bath = -h0*(1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2)
+        h1 = 10.d0 / 100.0d0
+        h2 = 11.d0 / 100.0d0
+        x0 = 5.d0
+        max_water_h = h2
+        bath = 0.d0
+        D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
+        z = SQRT( (3.d0 * (h2 - h1)) / (h2 * h1**2.d0) )
+        DO i = 1, mesh%np
+          bath(i) = 0.d0
+        END DO
     CASE(13) ! modified hyperbolic SGN model (Eric T., 2/26/2018)
          inputs%gravity = 9.81d0
          h1 = 10.d0 / 100.0d0
@@ -700,54 +710,103 @@ CONTAINS
      END SELECT
     CASE(12) ! Added to accomodate for paraboid with coriolis force (Eric T.)
      inputs%gravity = 9.81d0
-     a = 3.d0
-     h0 = 0.5d0
-     hL = 0.d0 ! L = 4 for this case
-     f = 2.d0
-     eta = 0.5d0
-     den = f**2 * a**4 + SQRT(8.d0 * f**2 * inputs%gravity  * h0 * a**6 + f**4 * a**8)
-     delta = 2.d0 * f * a**4 / (den)
-     w_star = -1.d0/(SQRT(2.d0) * a**2) * SQRT(4.d0*inputs%gravity*h0* a**2 + den)
+     ! a = 3.d0
+     ! h0 = 0.5d0
+     ! hL = 0.d0 ! L = 4 for this case
+     ! f = 2.d0
+     ! eta = 0.5d0
+     ! den = f**2 * a**4 + SQRT(8.d0 * f**2 * inputs%gravity  * h0 * a**6 + f**4 * a**8)
+     ! delta = 2.d0 * f * a**4 / (den)
+     ! w_star = -1.d0/(SQRT(2.d0) * a**2) * SQRT(4.d0*inputs%gravity*h0* a**2 + den)
+     h1 = 10.d0 / 100.0d0
+     h2 = 11.d0 / 100.0d0
+     x0 = 5.d0  ! we want largest solitary wave height starting here
+     D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
+     z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
+    ! SELECT CASE(k)
+    !   CASE(1) ! water height
+    !     DO i = 1, SIZE(rr,2)
+    !         bathi = -h0*(1.d0-((rr(1,i)-hL/2.d0)**2+(rr(2,i)-hL/2.d0)**2)/a**2)
+    !
+    !         htilde =  -bathi - eta/inputs%gravity * COS(w_star * t) * (1 - delta*f) * (rr(2,i)-hL/2.d0) &
+    !         + eta/inputs%gravity * SIN(w_star * t) * (f/w_star - delta*w_star) * (rr(1,i)-hL/2.d0) &
+    !         + eta**2 / (2.d0 * inputs%gravity) * (delta**2 *COS(w_star * t)*COS(w_star * t) + &
+    !         SIN(w_star * t)*SIN(w_star * t)/(w_star**2) )
+    !
+    !         vv(i) = MAX(htilde,0.d0)
+    !       END DO
+    !     CASE(2) ! u*h component of flow rate q
+    !       DO i = 1, SIZE(rr,2)
+    !         bathi = -h0*(1.d0-((rr(1,i)-hL/2.d0)**2+(rr(2,i)-hL/2.d0)**2)/a**2)
+    !
+    !         htilde =  -bathi - eta/inputs%gravity * COS(w_star * t) * (1 - delta*f) * (rr(2,i)-hL/2.d0) &
+    !         + eta/inputs%gravity * SIN(w_star * t) * (f/w_star - delta * w_star) * (rr(1,i)-hL/2.d0) &
+    !         + eta**2 / (2.d0 * inputs%gravity) * (delta**2 *COS(w_star * t)*COS(w_star * t) + &
+    !         SIN(w_star * t)*SIN(w_star * t)/(w_star**2) )
+    !
+    !         vv(i) = MAX(htilde,0.d0)
+    !
+    !         vv(i) = -vv(i) * delta * eta * COS(w_star * t)
+    !
+    !       END DO
+    !     CASE(3) ! v*h component of flow rate q
+    !       DO i = 1, SIZE(rr,2)
+    !         bathi = -h0*(1.d0-((rr(1,i)-hL/2.d0)**2+(rr(2,i)-hL/2.d0)**2)/a**2)
+    !
+    !         htilde =  -bathi - eta/inputs%gravity * COS(w_star * t) * (1 - delta*f) * (rr(2,i)-hL/2.d0) &
+    !         + eta/inputs%gravity * SIN(w_star * t) * (f/w_star - delta * w_star) * (rr(1,i)-hL/2.d0) &
+    !         + eta**2 / (2.d0 * inputs%gravity) * (delta**2 *COS(w_star * t)*COS(w_star * t) + &
+    !         SIN(w_star * t)*SIN(w_star * t)/(w_star**2) )
+    !
+    !         vv(i) = MAX(htilde,0.d0)
+    !         vv(i) = vv(i) * eta * SIN(w_star * t)/w_star
+    !
+    !       END DO
+    ! END SELECT
       SELECT CASE(k)
-      CASE(1) ! water height
-        DO i = 1, SIZE(rr,2)
-            bathi = -h0*(1.d0-((rr(1,i)-hL/2.d0)**2+(rr(2,i)-hL/2.d0)**2)/a**2)
+      CASE(1) ! h water height
+          ! for initial condition on water height
+          !IF (t.LE.1.d-10) THEN
+            DO i = 1, SIZE(rr,2)
+              bathi = 0.d0
+              htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+              vv(i) = max(htilde,0.d0)
+          !  END DO
+          ! ELSE ! exact solution
+          !   DO i = 1, SIZE(rr,2)
+          !     bathi = 0.d0
+          !     htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+          !     vv(i) = max(htilde,0.d0)
+            END DO
+         !END IF
 
-            htilde =  -bathi - eta/inputs%gravity * COS(w_star * t) * (1 - delta*f) * (rr(2,i)-hL/2.d0) &
-            + eta/inputs%gravity * SIN(w_star * t) * (f/w_star - delta*w_star) * (rr(1,i)-hL/2.d0) &
-            + eta**2 / (2.d0 * inputs%gravity) * (delta**2 *COS(w_star * t)*COS(w_star * t) + &
-            SIN(w_star * t)*SIN(w_star * t)/(w_star**2) )
-
-            vv(i) = MAX(htilde,0.d0)
-          END DO
-        CASE(2) ! u*h component of flow rate q
+      CASE(2) ! u*h component of flow rate q
+        ! for initial velocity u
+        !IF (t.LE.1.d-10) THEN
           DO i = 1, SIZE(rr,2)
-            bathi = -h0*(1.d0-((rr(1,i)-hL/2.d0)**2+(rr(2,i)-hL/2.d0)**2)/a**2)
-
-            htilde =  -bathi - eta/inputs%gravity * COS(w_star * t) * (1 - delta*f) * (rr(2,i)-hL/2.d0) &
-            + eta/inputs%gravity * SIN(w_star * t) * (f/w_star - delta * w_star) * (rr(1,i)-hL/2.d0) &
-            + eta**2 / (2.d0 * inputs%gravity) * (delta**2 *COS(w_star * t)*COS(w_star * t) + &
-            SIN(w_star * t)*SIN(w_star * t)/(w_star**2) )
-
-            vv(i) = MAX(htilde,0.d0)
-
-            vv(i) = -vv(i) * delta * eta * COS(w_star * t)
-
+            bathi = 0.d0
+            htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            vv(i) = MAX(htilde,0.d0)*0.d0
+            vv(i) = (vv(i) * D_wave - h1 * D_wave)*0.d0
           END DO
-        CASE(3) ! v*h component of flow rate q
-          DO i = 1, SIZE(rr,2)
-            bathi = -h0*(1.d0-((rr(1,i)-hL/2.d0)**2+(rr(2,i)-hL/2.d0)**2)/a**2)
+        !ELSE
+          ! DO i = 1, SIZE(rr,2)
+          !   bathi = 0.d0
+          !   htilde =  h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+          !   vv(i) = MAX(htilde,0.d0)
+          !   vv(i) = vv(i) * D - h1 * D
+          ! END DO
 
-            htilde =  -bathi - eta/inputs%gravity * COS(w_star * t) * (1 - delta*f) * (rr(2,i)-hL/2.d0) &
-            + eta/inputs%gravity * SIN(w_star * t) * (f/w_star - delta * w_star) * (rr(1,i)-hL/2.d0) &
-            + eta**2 / (2.d0 * inputs%gravity) * (delta**2 *COS(w_star * t)*COS(w_star * t) + &
-            SIN(w_star * t)*SIN(w_star * t)/(w_star**2) )
-
-            vv(i) = MAX(htilde,0.d0)
-            vv(i) = vv(i) * eta * SIN(w_star * t)/w_star
-
-          END DO
-        END SELECT
+       !END IF
+      CASE(3) ! v*h component of flow rate q, just 0 for now
+       ! for initial velocity u
+         DO i = 1, SIZE(rr,2)
+           bathi = 0.d0
+           htilde =  h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+           vv(i) = MAX(htilde,0.d0)
+           vv(i) = vv(i) * 0.d0
+         END DO
+       END SELECT
     CASE(13) ! Added to include hyperbolic SGN model (Eric T., 02/2018)
       ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
       ! initial constants go here

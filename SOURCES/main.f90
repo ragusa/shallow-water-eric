@@ -183,7 +183,7 @@ CONTAINS
     ! to add Boundary Conditions to eta and w
     IF (inputs%type_test==13) THEN
       IF (SIZE(ux_js_D).NE.0) uu(4,ux_js_D) = sol_anal(4,mesh%rr(:,ux_js_D),t)
-      IF (SIZE(uy_js_D).NE.0) uu(5,uy_js_D) = sol_anal(5,mesh%rr(:,uy_js_D),t)
+      IF (SIZE(ux_js_D).NE.0) uu(5,ux_js_D) = sol_anal(5,mesh%rr(:,ux_js_D),t)
     END IF
   END SUBROUTINE bdy
 
