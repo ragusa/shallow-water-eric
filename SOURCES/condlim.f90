@@ -214,7 +214,7 @@ CONTAINS
         ! bath = -h0*(1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2)
         h1 = 10.d0 / 100.0d0
         h2 = 11.d0 / 100.0d0
-        x0 = 5.d0
+        x0 = 2.75d0
         max_water_h = h2
         bath = 0.d0
         D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity

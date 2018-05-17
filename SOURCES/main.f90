@@ -117,7 +117,7 @@ PROGRAM shallow_water
      END IF
 
      IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 .OR. &
-     inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 .OR. inputs%type_test==3) THEN
+     inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13) THEN
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -129,10 +129,12 @@ PROGRAM shallow_water
                     hmovie(i) = un(1,i)+bath(i)
                  END IF
               END DO
+
               WRITE(frame,'(I3)') kit
               header = 'hpz_'//trim(adjustl(frame))//'.vtk'
               CALL vtk_2d(mesh, hmovie, 10, header)
               header = 'h_'//trim(adjustl(frame))//'.vtk'
+
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = 0.d0
