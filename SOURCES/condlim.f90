@@ -212,8 +212,8 @@ CONTAINS
         ! hL = 0.d0 ! L = 0 for this case since disk is centered at the origin
         ! max_water_h = 6.d0
         ! bath = -h0*(1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2)
-        h1 = 10.d0 / 100.0d0 / 2.d0
-        h2 = 11.d0 / 100.0d0 / 2.d0
+        h1 = 10.d0 / 100.0d0
+        h2 = 11.d0 / 100.0d0
         x0 = 5.d0
         max_water_h = h2
         bath = 0.d0
@@ -224,8 +224,8 @@ CONTAINS
         END DO
     CASE(13) ! modified hyperbolic SGN model (Eric T., 2/26/2018)
          inputs%gravity = 9.81d0
-         h1 = 10.d0 / 100.0d0 / 2.d0
-         h2 = 11.d0 / 100.0d0 / 2.d0 
+         h1 = 10.d0 / 100.0d0
+         h2 = 11.d0 / 100.0d0
          x0 = 2.75d0
          max_water_h = h2
          bath = 0.d0
@@ -761,8 +761,8 @@ CONTAINS
       ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
       ! initial constants go here
       inputs%gravity = 9.81d0
-      h1 = 10.d0 / 100.0d0 / 2.d0
-      h2 = 11.d0 / 100.0d0 / 2.d0
+      h1 = 10.d0 / 100.0d0
+      h2 = 11.d0 / 100.0d0
       x0 = 2.75d0  ! we want largest solitary wave height starting here
       D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
       z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
@@ -820,7 +820,7 @@ CONTAINS
              vv(i) = vv(i)*vv(i)
            END DO
          END IF
-      CASE(5) ! w*h component of flow rate r
+      CASE(5) ! w*h component of flow rate r ! this could be wrong
         IF (t.LE.1.d-10) THEN
              DO i = 1, SIZE(rr,2)
                bathi = 0.d0

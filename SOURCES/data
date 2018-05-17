@@ -1,11 +1,11 @@
 ===Name of directory for mesh file===
 '../MESHES/SGN_CANAL'
 ===Name of mesh file===
-rectangle.7.FEM
+rectangle.5.FEM
 ===Test case number===
 13
 ===Final time===
-4.2
+6.2
 ===CFL number===
 0.08d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
