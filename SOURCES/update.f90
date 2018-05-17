@@ -507,6 +507,9 @@ CONTAINS
       paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
     END DO
 
+    ! WRITE(*,*) 'this is average local mesh size', SUM(localMeshSize)/SIZE(localMeshSize)
+    ! STOP
+
     ! we first define s, psi and pTilde
     DO n = 1,mesh%np
 
