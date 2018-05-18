@@ -3,7 +3,7 @@
 #  Discussion:
 #
 #    This file describes a rectangle on [0,L]x[0,1],
-#    where L = 10.
+#    where L = 10000.
 #
 #    The boundary markers are:
 #    1: point on the outer boundary on the left side of rectangle

@@ -419,7 +419,6 @@ CONTAINS
      CASE(13) ! (Eric T.)
        CALL mSGN_RHS(un,rk) ! (Eric T. )
     END SELECT
-
   END SUBROUTINE smb_1
 
   SUBROUTINE friction(un,rk)
@@ -494,47 +493,25 @@ CONTAINS
     REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant
     INTEGER :: d, i, j, k, p, n
 
-    ! here assuming shape regularity so that Area = 1/2 mesh_size^2
-    ! and we find local mesh_size of trianle
-    ! localMeshSize = SQRT(2.d0 * inputs%localTriangleArea)
-    ! define this constant to make our lives easier
-
-
-    ! rest of pressure term that's not 1/2 g h^2 so just pTilde (see our paper)
-
+    ! we first define source term s and pressure correction pTilde
+    ! over all the mesh points
     DO n = 1,mesh%np
-      localMeshSize(n) = SQRT(lumped(n))
-      paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
-    END DO
-
-    ! WRITE(*,*) 'this is average local mesh size', SUM(localMeshSize)/SIZE(localMeshSize)
-    ! STOP
-
-    ! we first define s, psi and pTilde
-    DO n = 1,mesh%np
-
-      ! define paper_constant HERE
-
       ! this is eta/h
       x(n) = un(4,n)/(un(1,n)**2)
-      ! this is psi from our paper, see Remark 2.5
-      psi(n) = 12.d0 * (x(n)-1.d0)
-      ! psi(n) = 4.d0 * (x(n) - 1.d0/x(n))
-
-      ! this is pTilde from our paper, see Remark 2.5
+      ! this is presure correction pTilde from
+      ! Favrie/GAVRILYUK model, see equation 21
       pTilde(n) = - inputs%lambdaSGN/3.d0 * (x(n)-1.d0) * (un(4,n)/un(1,n))
-      ! pTilde(n) = paper_constant * un(1,n)**3 &
-      !      * (2.d0 - 2.d0 * (x(n)**4))
-
       ! this is the source term
       s(n) = - inputs%lambdaSGN*(x(n)-1.d0)
     END DO
 
+    ! update momentum equations here, but note
+    ! doing 1D problem in 2D setting so only update x momentum equation
+    ! change loop later to k = 1, k_dim
     DO i = 1, mesh%np
-       ! update momentum equations here
        DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
           j = cij(1)%ja(p)
-            DO k = 1, 1 !  doing 2D in 1D setting so only update x momentum equation
+            DO k = 1, 1
                rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
             END DO
        END DO
