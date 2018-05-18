@@ -13,7 +13,7 @@ MODULE update
   TYPE(matrice_bloc)                  :: muij, resij, dijL, muijL, lij, fctmat
   INTEGER                             :: isolve, isolve_m
   LOGICAL                             :: if_roundoff_fix=.TRUE.
-CONTAINS 
+CONTAINS
 
   SUBROUTINE construct_matrices
     USE st_matrix
@@ -67,11 +67,11 @@ CONTAINS
     dij%aa = 0.d0
 
     !===betaij
-    CALL st_csr(mesh%jj, betaij%ia, betaij%ja)
-    ALLOCATE(betaij%aa(SIZE(betaij%ja)))
-    CALL compute_betaij
-    stop
-    
+    !CALL st_csr(mesh%jj, betaij%ia, betaij%ja)
+    !ALLOCATE(betaij%aa(SIZE(betaij%ja)))
+    !CALL compute_betaij
+    !stop
+
     !===muij
     CALL st_csr(mesh%jj, muij%ia, muij%ja)
     ALLOCATE(muij%aa(SIZE(muij%ja)))
@@ -104,15 +104,15 @@ CONTAINS
        cij(d)%aa = 0.d0
     END DO
     DO m = 1, mesh%me
-       DO ni = 1, mesh%gauss%n_w  
+       DO ni = 1, mesh%gauss%n_w
           i = mesh%jj(ni, m)
-          DO nj = 1, mesh%gauss%n_w  
+          DO nj = 1, mesh%gauss%n_w
              j = mesh%jj(nj, m)
              DO d = 1, k_dim
                 x(d) = SUM(mesh%gauss%dw(d,nj,:,m) * mesh%gauss%ww(ni,:)*mesh%gauss%rj(:,m))
              END DO
              DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
-                IF (cij(1)%ja(p) == j) THEN  
+                IF (cij(1)%ja(p) == j) THEN
                    DO d = 1, k_dim
                       cij(d)%aa(p) = cij(d)%aa(p) + x(d)
                    END DO
@@ -122,6 +122,7 @@ CONTAINS
           ENDDO
        ENDDO
     ENDDO
+
 
     !===entropy viscosity matrix
     CALL st_csr(mesh%jj, resij%ia, resij%ja)
@@ -179,7 +180,7 @@ CONTAINS
     CALL compute_dij(un)
     CALL compute_muij(un)
     dij%aa = MAX(dij%aa,muij%aa)
-    
+
     !===Alpha viscosity
     IF (inputs%if_alpha_limit) THEN
        CALL alpha_limit(un(1,:))
@@ -279,10 +280,10 @@ CONTAINS
        CALL apply_viscosity(un,rk)
        CALL divide_by_lumped(rk)
        unext = unext+inputs%dt*rk
-    END IF 
+    END IF
 
     CALL check_Hmin(unext)
-  
+
     RETURN
 
   END SUBROUTINE euler
@@ -322,7 +323,6 @@ CONTAINS
     END DO
 
     RETURN
-
   END SUBROUTINE compute_dij
 
   SUBROUTINE compute_muij(un)
@@ -343,8 +343,9 @@ CONTAINS
              DO d = 1, k_dim
                 nij(d) = cij(d)%aa(p) !=== definition of cij is the same as in the paper
              END DO
-             ul = un(2:,i)*(2*un(1,i)/(un(1,i)**2+max(un(1,i),inputs%htiny)**2))
-             ur = un(2:,j)*(2*un(1,j)/(un(1,j)**2+max(un(1,j),inputs%htiny)**2))
+             ! changed from 2:, to 2:3 just to make things work for now.
+             ul = un(2:3,i)*(2*un(1,i)/(un(1,i)**2+max(un(1,i),inputs%htiny)**2))
+             ur = un(2:3,j)*(2*un(1,j)/(un(1,j)**2+max(un(1,j),inputs%htiny)**2))
              !ul=un(2:,i)/max(un(1,i),inputs%htiny)
              !ur=un(2:,j)/max(un(1,j),inputs%htiny)
              lambda=MAX(MAX(-SUM(nij*ul),0.d0),MAX(SUM(nij*ur),0.d0))
@@ -360,7 +361,6 @@ CONTAINS
     END DO
 
     RETURN
-
   END SUBROUTINE compute_muij
 
   SUBROUTINE smb_1(un,rk)
@@ -385,7 +385,7 @@ CONTAINS
           ratji = Hstarji/un(1,j)
           IF (un(1,i).LE.inputs%htiny) THEN !Important for long-time WB
              ratij=0.d0
-          ELSE 
+          ELSE
              ratij = Hstarij/un(1,i)
           END IF
           IF (un(1,j).LE.inputs%htiny) THEN !Important for long-time WB
@@ -401,16 +401,23 @@ CONTAINS
              END DO
              rk(k,i) = rk(k,i) + xx + dij%aa(p)*(un(k,j)*ratji-un(k,i)*ratij)
           END DO
+          ! it seems like here we are substracting grad (1/2 g h^2) + h grad(z)
           DO k = 1, k_dim
              rk(k+1,i) = rk(k+1,i) &
                   - 0.5d0*inputs%gravity*(Hstarji**2 - Hstarij**2)*cij(k)%aa(p)
           END DO
        END DO
     END DO
-    
+
     SELECT CASE(inputs%type_test)
-    CASE(9,10)
+    CASE(9,10) !
        CALL friction(un,rk)
+     CASE(11) ! (Eric T.)
+       CALL my_friction(un,rk)
+     CASE(12) ! (Eric T.)
+       CALL coriolis(un,rk) ! (Eric T.)
+     CASE(13) ! (Eric T.)
+       CALL mSGN_RHS(un,rk) ! (Eric T. )
     END SELECT
 
   END SUBROUTINE smb_1
@@ -425,24 +432,9 @@ CONTAINS
     REAL(KIND=8), DIMENSION(mesh%np)  :: hloc_star, hstar, vel
     INTEGER :: d, i, j, k, p
     REAL(KIND=8) :: fric
-    REAL(KIND=8), PARAMETER :: alpha = 2.d0, chi=1.d0
-
-!!$    fric = inputs%gravity*inputs%mannings**2
-!!$    hloc_star = (fric)**(1.d0-alpha)*(lumped)**(alpha*eta/2.d0)
-!!$    hstar = un(1,:)**eta
-!!$    vel = fric*SQRT(velocity(1,:)**2+velocity(2,:)**2)
-!!$    DO i = 1, mesh%np
-!!$       DO p = mass%ia(i), mass%ia(i+1) - 1
-!!$          j = mass%ja(p)
-!!$          DO k = 2, inputs%syst_size
-!!$             rk(k,i) = rk(k,i) &
-!!$                  - mass%aa(p)*velocity(k-1,j)*vel(j)/(hstar(j) + hloc_star(j))
-!!$          END DO
-!!$       END DO
-!!$    END DO
-
+    REAL(KIND=8), PARAMETER :: alpha = 2.d0, chi=1.d0, gamma = 4.d0/3.d0
     fric = inputs%gravity*inputs%mannings**2
-    hstar = MAX(un(1,:),inputs%htiny)**(1.d0+inputs%eta)
+    hstar = MAX(un(1,:),inputs%htiny)**gamma !**(1.d0+inputs%eta), changed to gamma (Eric T.)
     vel = fric*SQRT(velocity(1,:)**2+velocity(2,:)**2)
     hloc_star = chi*vel*inputs%dt
     DO i = 1, mesh%np
@@ -457,9 +449,109 @@ CONTAINS
        !   END DO
        !END DO
     END DO
-
-
   END SUBROUTINE friction
+
+  SUBROUTINE my_friction(un,rk) ! (made by Eric T., summer 2017)
+
+    USE mesh_handling
+    USE boundary_conditions
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
+    INTEGER :: d, i, j, k, p
+    REAL(KIND=8), PARAMETER :: kappa = 0.2d0 ! (Eric T.)
+
+    DO i = 1, mesh%np
+        DO k = 2, inputs%syst_size
+           rk(k,i) = rk(k,i) - lumped(i) * kappa * un(k,i)
+        END DO
+    END DO
+  END SUBROUTINE my_friction
+
+  SUBROUTINE coriolis(un,rk) ! (made by Eric T., summer 2017)
+    USE mesh_handling
+    USE boundary_conditions
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
+    INTEGER :: d, i, j, k, p
+    REAL(KIND=8), PARAMETER :: f = 2.d0
+    ! we assume the system size is 3 so that u = (h, uh, vh)^T
+    DO i = 1, mesh%np
+        DO j = 3, inputs%syst_size
+           rk(inputs%syst_size-1,i) = rk(inputs%syst_size-1,i) + lumped(i) * f * un(inputs%syst_size,i)
+           rk(inputs%syst_size,i) = rk(inputs%syst_size,i) - lumped(i) * f * un(inputs%syst_size-1,i)
+        END DO
+    END DO
+  END SUBROUTINE coriolis
+
+  SUBROUTINE mSGN_RHS(un,rk)
+    USE mesh_handling
+    USE boundary_conditions
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
+    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant
+    INTEGER :: d, i, j, k, p, n
+
+    ! here assuming shape regularity so that Area = 1/2 mesh_size^2
+    ! and we find local mesh_size of trianle
+    ! localMeshSize = SQRT(2.d0 * inputs%localTriangleArea)
+    ! define this constant to make our lives easier
+
+
+    ! rest of pressure term that's not 1/2 g h^2 so just pTilde (see our paper)
+
+    DO n = 1,mesh%np
+      localMeshSize(n) = SQRT(lumped(n))
+      paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
+    END DO
+
+    ! WRITE(*,*) 'this is average local mesh size', SUM(localMeshSize)/SIZE(localMeshSize)
+    ! STOP
+
+    ! we first define s, psi and pTilde
+    DO n = 1,mesh%np
+
+      ! define paper_constant HERE
+
+      ! this is eta/h
+      x(n) = un(4,n)/(un(1,n)**2)
+      ! this is psi from our paper, see Remark 2.5
+      psi(n) = 12.d0 * (x(n)-1.d0)
+      ! psi(n) = 4.d0 * (x(n) - 1.d0/x(n))
+
+      ! this is pTilde from our paper, see Remark 2.5
+      pTilde(n) = - inputs%lambdaSGN/3.d0 * (x(n)-1.d0) * (un(4,n)/un(1,n))
+      ! pTilde(n) = paper_constant * un(1,n)**3 &
+      !      * (2.d0 - 2.d0 * (x(n)**4))
+
+      ! this is the source term
+      s(n) = - inputs%lambdaSGN*(x(n)-1.d0)
+    END DO
+
+    DO i = 1, mesh%np
+       ! update momentum equations here
+       DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
+          j = cij(1)%ja(p)
+            DO k = 1, k_dim !  doing 2D in 1D setting so only update x momentum equation
+               rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
+            END DO
+       END DO
+
+      !h w from 4th equation
+      DO k = 4, 4
+          rk(k,i) = rk(k,i) + lumped(i) * un(5,i)
+      END DO
+      ! - s term from last equation
+      DO k = 5, 5
+            rk(k,i) = rk(k,i) - lumped(i) * s(i)
+      END DO
+
+    END DO
+
+  END SUBROUTINE mSGN_RHS
+
 
   SUBROUTINE smb_2_roundoff(un,rk)
     USE mesh_handling
@@ -478,10 +570,10 @@ CONTAINS
           j = cij(1)%ja(p)
           Hstarij = MAX(0.d0,un(1,i)+bath(i)-MAX(bath(i),bath(j)))
           Hstarji = MAX(0.d0,un(1,j)+bath(j)-MAX(bath(i),bath(j)))
-          !IF (un(1,i).LE.0.d0) THEN 
+          !IF (un(1,i).LE.0.d0) THEN
           IF (un(1,i).LE.inputs%htiny) THEN !Important for long-time WB
              ratij=0.d0
-          ELSE 
+          ELSE
              ratij = Hstarij/un(1,i)
           END IF
           !IF (un(1,j).LE.0.d0) THEN
@@ -513,19 +605,24 @@ CONTAINS
              rk(k,i) = rk(k,i) + xx + dij%aa(p)*(un(k,j)*ratji-un(k,i)*ratij) &
                   + muij%aa(p)*(un(k,j)*(1.d0-ratji)-un(k,i)*(1.d0-ratij))
           END DO
-          !===Topography contribution 
+          !===Topography contribution
           DO k = 1, k_dim
              rk(k+1,i) = rk(k+1,i) &
                   - inputs%gravity*un(1,i)*(un(1,j)+bath(j)-un(1,i)-bath(i))*cij(k)%aa(p)
           END DO
        END DO
     END DO
-    
-    SELECT CASE(inputs%type_test)
-    CASE(9,10)
-       CALL friction(un,rk)
-    END SELECT
 
+    SELECT CASE(inputs%type_test)
+    CASE(9,10) ! (Eric T.)
+       CALL friction(un,rk)
+    CASE(11)
+       CALL my_friction(un,rk)
+     CASE(12)
+       CALL coriolis(un,rk) ! (Eric T.)
+     CASE(13)
+       CALL mSGN_RHS(un,rk) ! (Eric T.)
+    END SELECT
   END SUBROUTINE smb_2_roundoff
 
   SUBROUTINE smb_2(un,rk)
@@ -535,6 +632,7 @@ CONTAINS
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
     REAL(KIND=8), DIMENSION(inputs%syst_size,k_dim,mesh%np)        :: vv
+    ! note that k_dim is okay here for SGN as long as just set second row = 0
     INTEGER :: d, i, j, k, p
     REAL(KIND=8) :: xx, hmean, Hstarij, Hstarji, ratij, ratji
     vv=flux(un)
@@ -547,11 +645,11 @@ CONTAINS
           Hstarji = MAX(0.d0,un(1,j)+bath(j)-MAX(bath(i),bath(j)))
           IF (un(1,i).LE.0) THEN
              ratij=0.d0
-          ELSE 
+          ELSE
              ratij = Hstarij/un(1,i) !Do not use one_over_h here
              !ratij = Hstarij*one_over_h(i) !Do not use one_over_h here
           END IF
-          IF (un(1,j).LE.0) THEN 
+          IF (un(1,j).LE.0) THEN
              ratji=0.d0
           ELSE
              ratji = Hstarji/un(1,j) !Do not use one_over_h here
@@ -565,19 +663,24 @@ CONTAINS
              rk(k,i) = rk(k,i) + xx + dij%aa(p)*(un(k,j)*ratji-un(k,i)*ratij) &
                   + muij%aa(p)*(un(k,j)*(1.d0-ratji)-un(k,i)*(1.d0-ratij))
           END DO
-          !===Topography contribution 
+          !===Topography contribution
           DO k = 1, k_dim
              rk(k+1,i) = rk(k+1,i) &
                   - inputs%gravity*un(1,i)*(un(1,j)+bath(j)-un(1,i)-bath(i))*cij(k)%aa(p)
           END DO
        END DO
     END DO
-    
+
     SELECT CASE(inputs%type_test)
     CASE(9,10)
        CALL friction(un,rk)
+     CASE(11)
+       CALL my_friction(un,rk) ! (Eric T.)
+     CASE(12)
+       CALL coriolis(un,rk) ! (Eric T.)
+     CASE(13)
+       CALL mSGN_RHS(un,rk) ! Eric T.
     END SELECT
-    
   END SUBROUTINE smb_2
 
  SUBROUTINE apply_viscosity(un,rk)
@@ -598,11 +701,11 @@ CONTAINS
           Hstarji = MAX(0.d0,un(1,j)+bath(j)-MAX(bath(i),bath(j)))
           IF (un(1,i).LE.0.d0) THEN
              ratij=0.d0
-          ELSE 
+          ELSE
              ratij = Hstarij/un(1,i)
 
           END IF
-          IF (un(1,j).LE.0.d0) THEN 
+          IF (un(1,j).LE.0.d0) THEN
              ratji=0.d0
           ELSE
              ratji = Hstarji/un(1,j)
@@ -614,9 +717,8 @@ CONTAINS
        END DO
        rk(:,i) = xx
     END DO
+ END SUBROUTINE apply_viscosity
 
-  END SUBROUTINE apply_viscosity
-  
 
   SUBROUTINE compute_fct_matrix(un,fctmat)
     USE mesh_handling
@@ -633,10 +735,10 @@ CONTAINS
           Hstarji = MAX(0.d0,un(j)+bath(j)-MAX(bath(i),bath(j)))
           IF (un(i).LE.0.d0) THEN
              ratij=0.d0
-          ELSE 
+          ELSE
              ratij = Hstarij/un(i)
           END IF
-          IF (un(j).LE.0.d0) THEN 
+          IF (un(j).LE.0.d0) THEN
              ratji=0.d0
           ELSE
              ratji = Hstarji/un(j)
@@ -696,7 +798,6 @@ CONTAINS
        dij%aa(diag(i)) = -SUM(dij%aa(dij%ia(i):dij%ia(i+1)-1))
        muij%aa(diag(i)) = -SUM(muij%aa(dij%ia(i):dij%ia(i+1)-1))
     END DO
-
   END SUBROUTINE alpha_limit
 
 SUBROUTINE divide_by_lumped(rk)
@@ -712,12 +813,16 @@ SUBROUTINE check_hmin(h)
  USE boundary_conditions
  IMPLICIT NONE
  REAL(KIND=8), DIMENSION(:,:) :: h
+ SELECT CASE(inputs%type_test)
+ CASE(1,2,3,4,5,6,7,8,9,10,11,12,13)
  IF (MINVAL(h(1,:))<0.d0) THEN
     WRITE(*,*) 'Min h<0, STOP', MINVAL(h)
     WRITE(*,*) 'MAXVAL(vel)', MAXVAL(ABS(velocity(1,:))), MAXVAL(ABS(velocity(2,:)))
     STOP
  END IF
+END SELECT
 END SUBROUTINE check_hmin
+
 
 SUBROUTINE entropy_residual(un)
  USE mesh_handling
@@ -748,7 +853,7 @@ SUBROUTINE entropy_residual(un)
  Entnext = 0.5d0*Entnext
 
  Entprime(1,:) = inputs%gravity*un(1,:)  ! -|u|^2/2+gh
- DO k = 1, k_dim 
+ DO k = 1, k_dim
     Entprime(1,:) = Entprime(1,:) -0.5d0*velocity(k,:)**2
     Entprime(k+1,:) = velocity(k,:)
  END DO
@@ -830,4 +935,5 @@ SUBROUTINE maxmin(un,mat,maxn,minn)
      minn(i) = MINVAL(un(mat%ja(mat%ia(i):mat%ia(i+1)-1)))
   END DO
 END SUBROUTINE maxmin
+
 END MODULE update

@@ -522,20 +522,19 @@ CONTAINS
       ! psi(n) = 4.d0 * (x(n) - 1.d0/x(n))
 
       ! this is pTilde from our paper, see Remark 2.5
-      pTilde(n) = paper_constant(n) * un(1,n)**3 &
-           * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
+      pTilde(n) = - inputs%lambdaSGN/3.d0 * (x(n)-1.d0) * (un(4,n)/un(1,n))
       ! pTilde(n) = paper_constant * un(1,n)**3 &
       !      * (2.d0 - 2.d0 * (x(n)**4))
 
       ! this is the source term
-      s(n) = 3.d0*paper_constant(n) * (un(4,n)/un(1,n))**2 * psi(n)
+      s(n) = - inputs%lambdaSGN*(x(n)-1.d0)
     END DO
 
     DO i = 1, mesh%np
        ! update momentum equations here
        DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
           j = cij(1)%ja(p)
-            DO k = 1, k_dim !  doing 2D in 1D setting so only update x momentum equation
+            DO k = 1, 1 !  doing 2D in 1D setting so only update x momentum equation
                rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
             END DO
        END DO
@@ -544,9 +543,9 @@ CONTAINS
       DO k = 4, 4
           rk(k,i) = rk(k,i) + lumped(i) * un(5,i)
       END DO
-      ! - s term from last equation
+      ! s term from last equation
       DO k = 5, 5
-            rk(k,i) = rk(k,i) - lumped(i) * s(i)
+            rk(k,i) = rk(k,i) + lumped(i) * s(i)
       END DO
 
     END DO
