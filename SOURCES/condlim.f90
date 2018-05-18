@@ -220,8 +220,8 @@ CONTAINS
         END DO
     CASE(13) ! modified hyperbolic SGN model (Eric T., 2/26/2018)
          inputs%gravity = 9.81d0
-         h1 = 1.d0 / 10.d0
-         h2 = 1.8d0 /10.d0
+         h1 = 10.d0 / 100.d0
+         h2 = 11.d0 /100.d0
          x0 = 200.d0 / 100.d0
          max_water_h = h2
          bath = 0.d0
@@ -751,8 +751,8 @@ CONTAINS
       ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
       ! initial constants go here
       inputs%gravity = 9.81d0
-      h1 = 1.d0 / 10.d0
-      h2 = 1.8d0 / 10.d0
+      h1 = 10.d0 / 100.d0
+      h2 = 11.d0 / 100.d0
       x0 = 200.d0  / 100.d0  ! we want largest solitary wave height starting here
       D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
       z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
