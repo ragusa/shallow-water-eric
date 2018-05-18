@@ -212,9 +212,9 @@ CONTAINS
         ! hL = 0.d0 ! L = 0 for this case since disk is centered at the origin
         ! max_water_h = 6.d0
         ! bath = -h0*(1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2)
-        h1 = 3.d0 / 100.0d0
-        h2 = 3.8d0 / 100.0d0
-        x0 = 2.75d0
+        h1 = 3.d0 / 100.d0
+        h2 = 3.8d0 / 100.d0
+        x0 = 200.d0 / 100.d0
         max_water_h = h2
         bath = 0.d0
         D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
