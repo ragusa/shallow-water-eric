@@ -92,8 +92,6 @@ CONTAINS
     CASE(13)
        CALL read_until(in_unit, "===Lambda for SGN model===")
        READ (in_unit,*) inputs%lambdaSGN
-       !CALL read_until(in_unit, "===Local triangle area===")
-       !READ (in_unit,*) inputs%localTriangleArea
     END SELECT
 
  CLOSE(in_unit)

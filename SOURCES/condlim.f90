@@ -2,7 +2,8 @@ MODULE boundary_conditions
   !in 2D
   !11=Paraboloid + friction (Eric T.)
   !12=Paraboloid + coriolis force (Eric T.)
-  !13=modified SGN model (Eric T. )
+  !13=modified SGN model, solitary wave in canal (Eric T. )
+  !14=modified SGN model, solitary wave run up (Eric T. )
   USE input_data
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: bath
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: velocity
@@ -49,7 +50,7 @@ CONTAINS
           vv(3,2,n) = velocity(2,n)*un(3,n) ! v vh
 
        END DO
-    CASE(13) ! case 13 for modifed SGN hyperbolic model
+    CASE(13,14) ! cases 13,14 for modifed SGN hyperbolic model
 
        one_over_h = compute_one_over_h(un(1,:))
        DO n = 1, mesh%np
@@ -105,7 +106,7 @@ CONTAINS
     ALLOCATE(bath(mesh%np))
     ALLOCATE(one_over_h(mesh%np))
     ALLOCATE(regul_h(mesh%np))
-    IF (inputs%type_test==13) THEN
+    IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
       ALLOCATE(velocity(k_dim + 2,mesh%np)) ! for modified SGN model, u v eta w
     ELSE
       ALLOCATE(velocity(k_dim,mesh%np)) !this is original
@@ -214,7 +215,7 @@ CONTAINS
         ! bath = -h0*(1.d0-((mesh%rr(1,:)-hL/2.d0)**2+(mesh%rr(2,:)-hL/2.d0)**2)/a**2)
         h1 = 10.d0 / 100.0d0
         h2 = 11.d0 / 100.0d0
-        x0 = 2.75d0
+        x0 = 2.00d0
         max_water_h = h2
         bath = 0.d0
         D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
@@ -226,7 +227,7 @@ CONTAINS
          inputs%gravity = 9.81d0
          h1 = 10.d0 / 100.0d0
          h2 = 11.d0 / 100.0d0
-         x0 = 2.75d0
+         x0 = 2.d0
          max_water_h = h2
          bath = 0.d0
          D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
@@ -234,6 +235,22 @@ CONTAINS
          DO i = 1, mesh%np
            bath(i) = 0.d0
          END DO
+    CASE(14) ! modified hyperbolic SGN solitary wave run up (Eric T., 5/21/2018)
+            inputs%gravity = 9.81d0
+            h1 = 1.5d0
+            h2 = 2.d0
+            x0 = 15.d0
+            max_water_h = h2
+            !inputs%Tfinal = inputs%TFinal * SQRT(inputs%gravity / h1)
+            D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
+            z = SQRT( (3.d0 * (h2 - h1)) / (h2 * h1**2.d0) )
+            DO i = 1, mesh%np
+               IF (mesh%rr(1,i) - 32.d0< 1.d-4) THEN
+                  bath(i) = 1.d0
+               ELSE
+                  bath(i) = 1.d0 + 1.d0 / 19.85 * (mesh%rr(1,i)-32.d0)
+               END IF
+            END DO
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -756,50 +773,32 @@ CONTAINS
             END DO
           ! END SELECT
       END SELECT
-
     CASE(13) ! Added to include hyperbolic SGN model (Eric T., 02/2018)
       ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
       ! initial constants go here
       inputs%gravity = 9.81d0
       h1 = 10.d0 / 100.0d0
       h2 = 11.d0 / 100.0d0
-      x0 = 2.75d0  ! we want largest solitary wave height starting here
+      x0 = 2.d0  ! we want largest solitary wave height starting here
       D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
       z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
 
       SELECT CASE(k)
       CASE(1) ! h water height
-          ! for initial condition on water height
-          !IF (t.LE.1.d-10) THEN
+          ! for water height
             DO i = 1, SIZE(rr,2)
               bathi = 0.d0
               htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
               vv(i) = max(htilde,0.d0)
-          !  END DO
-          ! ELSE ! exact solution
-          !   DO i = 1, SIZE(rr,2)
-          !     bathi = 0.d0
-          !     htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-          !     vv(i) = max(htilde,0.d0)
             END DO
-         !END IF
 
       CASE(2) ! u*h component of flow rate q
-        ! for initial velocity u
-        !IF (t.LE.1.d-10) THEN
           DO i = 1, SIZE(rr,2)
             bathi = 0.d0
             htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
             vv(i) = MAX(htilde,0.d0)
             vv(i) = vv(i) * D_wave - h1 * D_wave
           END DO
-        !ELSE
-          ! DO i = 1, SIZE(rr,2)
-          !   bathi = 0.d0
-          !   htilde =  h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-          !   vv(i) = MAX(htilde,0.d0)
-          !   vv(i) = vv(i) * D - h1 * D
-          ! END DO
 
        !END IF
       CASE(3) ! v*h component of flow rate q, just 0 for now
@@ -831,6 +830,83 @@ CONTAINS
              END DO
         END IF
       END SELECT
+    CASE(14) ! Added to include hyperbolic SGN model, solitary wave run up (Eric T., 05/21/2018)
+      ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
+      ! initial constants go here
+      inputs%gravity = 9.81d0
+      h1 = 1.5d0
+      h2 = 2.d0
+      x0 = 15.d0  ! we want largest solitary wave height starting here
+      D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
+      z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
+
+      SELECT CASE(k)
+      CASE(1) ! h water height
+          ! for water height
+            DO i = 1, SIZE(rr,2)
+              IF (rr(1,i) - 32.d0< 1.d-4) THEN
+                 bathi = 1.d0
+              ELSE
+                 bathi = 1.d0 + 1.d0 / 19.85d0 * (rr(1,i)-32.d0)
+              END IF
+              htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+              vv(i) = max(htilde - bathi,0.d0)
+            END DO
+
+      CASE(2) ! u*h component of flow rate q
+          DO i = 1, SIZE(rr,2)
+            IF (rr(1,i) - 32.d0< 1.d-4) THEN
+               bathi = 1.d0
+            ELSE
+               bathi = 1.d0 + 1.d0 / 19.85d0 * (rr(1,i)-32.d0)
+            END IF
+            htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            vv(i) = MAX(htilde,0.d0)
+            vv(i) = vv(i) * D_wave - h1 * D_wave
+          END DO
+
+       !END IF
+      CASE(3) ! v*h component of flow rate q, just 0 for now
+       ! for initial velocity u
+         DO i = 1, SIZE(rr,2)
+           IF (rr(1,i) - 32.d0< 1.d-4) THEN
+              bathi = 1.d0
+           ELSE
+              bathi = 1.d0 + 1.d0 / 19.85d0 * (rr(1,i)-32.d0)
+           END IF
+           htilde =  h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+           vv(i) = MAX(htilde,0.d0)
+           vv(i) = vv(i) * 0.d0
+         END DO
+      CASE(4) ! eta*h component of flow rate r
+         ! initial condition from FAVRIE/GAVRILYUK paper
+         IF (t.LE.1.d-10) THEN
+           DO i = 1, SIZE(rr,2)
+             IF (rr(1,i) - 32.d0< 1.d-4) THEN
+                bathi = 1.d0
+             ELSE
+                bathi = 1.d0 + 1.d0 / 19.85d0 * (rr(1,i)-32.d0)
+             END IF
+             htilde = h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+             vv(i) = MAX(htilde- bathi,0.d0)
+             vv(i) = vv(i)*vv(i)
+           END DO
+         END IF
+      CASE(5) ! w*h component of flow rate r ! this could be wrong
+        IF (t.LE.1.d-10) THEN
+             DO i = 1, SIZE(rr,2)
+               IF (rr(1,i) - 32.d0< 1.d-4) THEN
+                  bathi = 1.d0
+               ELSE
+                  bathi = 1.d0 + 1.d0 / 19.85d0 * (rr(1,i)-32.d0)
+               END IF
+               !htilde = h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+               !vv(i) = MAX(htilde,0.d0)
+               vv(i) = - D_wave * h1 * ((h1 - h2)*z*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0 &
+               * TANH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))
+             END DO
+        END IF
+      END SELECT
 
    CASE DEFAULT
       WRITE(*,*) ' BUG in sol_anal'
@@ -854,8 +930,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(1,2,3,4,5,6,7,8,11,12,13) ! added cases 11 and 12 (Eric T. )
-
+    CASE(1,2,3,4,5,6,7,8,11,12,13,14)
        IF (hl.LE.inputs%htiny .AND. hr.LE.inputs%htiny) THEN
           !lambda = 0.d0
           lambda = MAX(ABS(vl - 2*sql),ABS(vr + 2*sqr))
@@ -904,7 +979,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13)
+    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14)
        !IF (hl.LE.inputs%htiny .AND. hr.LE.inputs%htiny) THEN
        !   lambda = 0.d0
        !   RETURN

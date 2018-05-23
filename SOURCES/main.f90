@@ -21,7 +21,7 @@ PROGRAM shallow_water
   CALL construct_matrices
   inputs%syst_size=k_dim+1 !For shallow water
 
-  IF (inputs%type_test==13) THEN
+  IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
   inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
   END IF
 
@@ -32,15 +32,16 @@ PROGRAM shallow_water
   hmax0 = MAXVAL(un(1,:))
   CALL plot_scalar_field(mesh%jj, mesh%rr, bath, 'bath.plt')
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'hinit.plt')
-  IF (inputs%type_test==13) THEN
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(4,:), 'h_eta_init.plt')
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'h_u_init.plt')
-  END IF
+  ! IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
+  ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(4,:), 'h_eta_init.plt')
+  ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'h_u_init.plt')
+  ! END IF
 
   CALL COMPUTE_DT(un)
 
   IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 &
-  .OR. inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13) THEN
+  .OR. inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
+  .OR. inputs%type_test==14) THEN
      dt_frame = inputs%Tfinal/(nb_frame-1)
      CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
      CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
@@ -117,7 +118,8 @@ PROGRAM shallow_water
      END IF
 
      IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 .OR. &
-     inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13) THEN
+     inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
+     .OR. inputs%type_test==14) THEN
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -158,10 +160,10 @@ PROGRAM shallow_water
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'h.plt')
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'qx.plt')
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(3,:), 'qy.plt')
-  IF (inputs%type_test==13) THEN
-    CALL plot_scalar_field(mesh%jj,mesh%rr,un(4,:),'h_eta.plt')
-    CALL plot_scalar_field(mesh%jj,mesh%rr,un(5,:),'h_w.plt')
-  END IF
+  ! IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
+  !   CALL plot_scalar_field(mesh%jj,mesh%rr,un(4,:),'h_eta.plt')
+  !   CALL plot_scalar_field(mesh%jj,mesh%rr,un(5,:),'h_w.plt')
+  ! END IF
 
 CONTAINS
 
@@ -183,7 +185,7 @@ CONTAINS
     IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
     IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
     ! to add Boundary Conditions to eta and w
-    IF (inputs%type_test==13) THEN
+    IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
       IF (SIZE(ux_js_D).NE.0) uu(4,ux_js_D) = sol_anal(4,mesh%rr(:,ux_js_D),t)
       IF (SIZE(ux_js_D).NE.0) uu(5,ux_js_D) = sol_anal(5,mesh%rr(:,ux_js_D),t)
     END IF

@@ -416,7 +416,7 @@ CONTAINS
        CALL my_friction(un,rk)
      CASE(12) ! (Eric T.)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13) ! (Eric T.)
+     CASE(13,14) ! (Eric T.)
        CALL mSGN_RHS(un,rk) ! (Eric T. )
     END SELECT
 
@@ -621,7 +621,7 @@ CONTAINS
        CALL my_friction(un,rk)
      CASE(12)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13)
+     CASE(13,14)
        CALL mSGN_RHS(un,rk) ! (Eric T.)
     END SELECT
   END SUBROUTINE smb_2_roundoff
@@ -679,7 +679,7 @@ CONTAINS
        CALL my_friction(un,rk) ! (Eric T.)
      CASE(12)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13)
+     CASE(13,14)
        CALL mSGN_RHS(un,rk) ! Eric T.
     END SELECT
   END SUBROUTINE smb_2
@@ -815,7 +815,7 @@ SUBROUTINE check_hmin(h)
  IMPLICIT NONE
  REAL(KIND=8), DIMENSION(:,:) :: h
  SELECT CASE(inputs%type_test)
- CASE(1,2,3,4,5,6,7,8,9,10,11,12,13)
+ CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14)
  IF (MINVAL(h(1,:))<0.d0) THEN
     WRITE(*,*) 'Min h<0, STOP', MINVAL(h)
     WRITE(*,*) 'MAXVAL(vel)', MAXVAL(ABS(velocity(1,:))), MAXVAL(ABS(velocity(2,:)))

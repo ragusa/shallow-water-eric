@@ -5,7 +5,7 @@ rectangle.5.FEM
 ===Test case number===
 13
 ===Final time===
-5
+5.2
 ===CFL number===
 0.08d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
@@ -26,11 +26,11 @@ rectangle.5.FEM
 ===How many Dirichlet boundaries for ux?===
 0
 ===List of Dirichlet boundaries for ux?===
-1 2 3 4
+0
 ===How many Dirichlet boundaries for uy?===
 0
 ===List of Dirichlet boundaries for uy?===
-1 2 3 4
+0
 ===Number of subdomains in the mesh===
 1
 ===List of subdomain in the mesh===
@@ -38,4 +38,4 @@ rectangle.5.FEM
 ===Type of finite element===
 1
 ===Lambda for SGN model===
-9.0d0
+1.0d0
