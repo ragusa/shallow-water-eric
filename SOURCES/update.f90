@@ -491,45 +491,37 @@ CONTAINS
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
-    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant
+    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant, one_o_h
     INTEGER :: d, i, j, k, p, n
 
-    ! here assuming shape regularity so that Area = 1/2 mesh_size^2
-    ! and we find local mesh_size of trianle
-    ! localMeshSize = SQRT(2.d0 * inputs%localTriangleArea)
-    ! define this constant to make our lives easier
-
-
     ! rest of pressure term that's not 1/2 g h^2 so just pTilde (see our paper)
-
+    ! define everything for all points here
+    !one_o_h(:) = compute_one_over_h(un(1,:))
     DO n = 1,mesh%np
       localMeshSize(n) = SQRT(lumped(n))
       paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
     END DO
 
-    ! WRITE(*,*) 'this is average local mesh size', SUM(localMeshSize)/SIZE(localMeshSize)
-    ! STOP
-
-    ! we first define s, psi and pTilde
+    ! we first define psi,pTilde,s for all points
     DO n = 1,mesh%np
-
-      ! define paper_constant HERE
-
       ! this is eta/h
-      x(n) = un(4,n)/(un(1,n)**2)
-      ! this is psi from our paper, see Remark 2.5
-      psi(n) = 12.d0 * (x(n)-1.d0)
-      ! psi(n) = 4.d0 * (x(n) - 1.d0/x(n))
-
-      ! this is pTilde from our paper, see Remark 2.5
+      x(n) = un(4,n)/un(1,n)**2.d0
       pTilde(n) = paper_constant(n) * un(1,n)**3 &
            * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
-      ! pTilde(n) = paper_constant * un(1,n)**3 &
-      !      * (2.d0 - 2.d0 * (x(n)**4))
+      psi(n) = 12.d0 * (x(n)-1.d0)
+      ! this is psi from our paper, see Remark 2.5
 
+      ! this is pTilde from our paper, see Remark 2.5
+        ! IF (un(1,n) < 1.d-4 + localMeshSize(n)) THEN
+        !   pTilde(n) = 0.d0
+        !   !x(n) = 1.d0
+        ! ELSE
+        !
+        ! END IF
       ! this is the source term
       s(n) = 3.d0*paper_constant(n) * (un(4,n)/un(1,n))**2 * psi(n)
     END DO
+    !STOP
 
     DO i = 1, mesh%np
        ! update momentum equations here
