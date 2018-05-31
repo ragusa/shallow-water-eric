@@ -506,22 +506,15 @@ CONTAINS
     DO n = 1,mesh%np
       ! this is eta/h
       x(n) = un(4,n)/un(1,n)**2.d0
+      ! this is psi from our paper, see Remark 2.5
+      psi(n) = 12.d0 * (x(n)-1.d0)
+      ! this is pTilde from our paper, see Remark 2.5
       pTilde(n) = paper_constant(n) * un(1,n)**3 &
            * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
-      psi(n) = 12.d0 * (x(n)-1.d0)
-      ! this is psi from our paper, see Remark 2.5
-
-      ! this is pTilde from our paper, see Remark 2.5
-        ! IF (un(1,n) < 1.d-4 + localMeshSize(n)) THEN
-        !   pTilde(n) = 0.d0
-        !   !x(n) = 1.d0
-        ! ELSE
-        !
-        ! END IF
       ! this is the source term
       s(n) = 3.d0*paper_constant(n) * (un(4,n)/un(1,n))**2 * psi(n)
     END DO
-    !STOP
+  
 
     DO i = 1, mesh%np
        ! update momentum equations here
