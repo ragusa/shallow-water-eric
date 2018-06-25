@@ -496,25 +496,54 @@ CONTAINS
 
     ! rest of pressure term that's not 1/2 g h^2 so just pTilde (see our paper)
     ! define everything for all points here
-    !one_o_h(:) = compute_one_over_h(un(1,:))
     DO n = 1,mesh%np
+
       localMeshSize(n) = SQRT(lumped(n))
-      paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
+
+      IF (inputs%type_test==13) THEN
+        paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
+        ! this is eta/h without using one_over_h
+        x(n) = un(4,n) / un(1,n)**2
+      ELSE
+        ! this is eta/h with using one_over_h
+        x(n) = un(4,n) * one_over_h(n) * one_over_h(n)
+
+        IF (un(4,n) * one_over_h(n) < localMeshSize(n)*0.1 ) THEN
+          paper_constant(n) = 0.d0
+        ELSE
+          paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
+        END IF
+        
+      END IF
+
+      !x(n) = 2.d0 * un(4,n) / (un(1,n)**2 + MAX(localMeshSize(n), un(1,n))**2)
+
+
     END DO
 
     ! we first define psi,pTilde,s for all points
     DO n = 1,mesh%np
-      ! this is eta/h
-      x(n) = un(4,n)/un(1,n)**2.d0
+    IF (inputs%type_test==13) THEN
       ! this is psi from our paper, see Remark 2.5
       psi(n) = 12.d0 * (x(n)-1.d0)
-      ! this is pTilde from our paper, see Remark 2.5
-      pTilde(n) = paper_constant(n) * un(1,n)**3 &
-           * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
       ! this is the source term
       s(n) = 3.d0*paper_constant(n) * (un(4,n)/un(1,n))**2 * psi(n)
+      ! this is pTilde from our paper
+      pTilde(n) = paper_constant(n) * un(1,n)**3 &
+           * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
+      ELSE
+      ! this is pTilde from our paper usint cut off
+      IF (un(4,n) * one_over_h(n) < localMeshSize(n)*0.1 ) THEN
+        pTilde(n) = 0.d0
+      ELSE
+      pTilde(n) = paper_constant(n) * un(1,n)**3 &
+           * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
+      END IF
+      ! this is the source term
+      s(n) = 3.d0*paper_constant(n) * (un(4,n) * one_over_h(n))**2 * psi(n)
+    END IF
     END DO
-  
+
 
     DO i = 1, mesh%np
        ! update momentum equations here
