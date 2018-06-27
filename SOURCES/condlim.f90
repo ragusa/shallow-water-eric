@@ -349,7 +349,7 @@ CONTAINS
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
          xshock, h_pre_shock, h_post_shock, bath_shock, bathi, Ber_pre, Ber_post, &
          alpha, beta, chi, vel, xs, hcone, htop, radius, rcone, scone, bx, kappa, &
-         s, htilde, p, f, delta, w_star, den, gamma, h1, h2, lambdaSGN, z, D_wave, SS, slope
+         s, htilde, p, f, delta, w_star, den, gamma, h1, h2, lambdaSGN, z, D_wave, SS, slope, TH 
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
     !===
@@ -837,7 +837,7 @@ CONTAINS
       ! initial constants go here
       inputs%gravity = 9.81d0
       h1 = 1.05d0
-      h2 = h1 + 0.28d0
+      h2 = 1.05d0 + 0.28d0
       x0 = 10.0d0  ! we want largest solitary wave height starting here
       D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
       z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
@@ -869,9 +869,9 @@ CONTAINS
                bathi = 1.d0 + slope * (rr(1,i)-SS)
             END IF
             htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-            ! vv(i) = MAX(htilde,0.d0)
+             vv(i) = MAX(htilde,0.d0)
             ! vv(i) = vv(i) * D_wave - h1 * D_wave
-            vv(i) = D_wave * (htilde - bathi - (h1 - bathi))
+            vv(i) = D_wave * (vv(i)- bathi - (h1 - bathi))
           END DO
 
         END IF
@@ -914,7 +914,7 @@ CONTAINS
                !vv(i) = MAX(htilde,0.d0)
                vv(i) = - D_wave * h1 * ((h1 - h2)*z*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0 &
                * TANH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))
-               vv(i) = 0.d0
+               !vv(i) = 0.d0
              END DO
         END IF
       END SELECT
