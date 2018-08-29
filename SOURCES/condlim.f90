@@ -51,7 +51,6 @@ CONTAINS
 
        END DO
     CASE(13,14) ! cases 13,14 for modifed SGN hyperbolic model
-
        one_over_h = compute_one_over_h(un(1,:))
        DO n = 1, mesh%np
           ! set up velocity vector here
@@ -229,30 +228,25 @@ CONTAINS
          h2 = 11.d0 / 100.0d0
          x0 = 2.d0
          max_water_h = h2
-         bath = 0.d0
-         D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
-         z = SQRT( (3.d0 * (h2 - h1)) / (h2 * h1**2.d0) )
          DO i = 1, mesh%np
            bath(i) = 0.d0
          END DO
     CASE(14) ! modified hyperbolic SGN solitary wave run up (Eric T., 5/21/2018)
-            inputs%gravity = 9.81d0
-            h1 = 1.05d0
-            h2 = h1 + 0.28
-            x0 = 10.0d0
-            max_water_h = 0.33 !h2
-            SS = 32.5
-            slope = 1.d0 / 19.85d0
-            !inputs%Tfinal = inputs%TFinal * SQRT(inputs%gravity / h1)
-            D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
-            z = SQRT( (3.d0 * (h2 - h1)) / (h2 * h1**2.d0) )
-            DO i = 1, mesh%np
-               IF (mesh%rr(1,i) - SS < 1.d-4) THEN
-                  bath(i) = 1.d0
-               ELSE
-                  bath(i) = 1.d0 + slope * (mesh%rr(1,i)-SS)
-               END IF
-            END DO
+         inputs%gravity = 9.81d0
+         h1 = 1.05d0
+         h2 = h1 + 0.28
+         x0 = 10.0d0
+         max_water_h = h2
+         SS = 32.5
+         slope = 1.d0 / 19.85d0
+        !inputs%Tfinal = inputs%TFinal * SQRT(inputs%gravity / h1)
+         DO i = 1, mesh%np
+            IF (mesh%rr(1,i) - SS < 0.d0) THEN
+                 bath(i) = 1.d0
+            ELSE
+                 bath(i) = 1.d0 + slope * (mesh%rr(1,i)-SS)
+            END IF
+         END DO
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -349,7 +343,7 @@ CONTAINS
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
          xshock, h_pre_shock, h_post_shock, bath_shock, bathi, Ber_pre, Ber_post, &
          alpha, beta, chi, vel, xs, hcone, htop, radius, rcone, scone, bx, kappa, &
-         s, htilde, p, f, delta, w_star, den, gamma, h1, h2, lambdaSGN, z, D_wave, SS, slope, TH 
+         s, htilde, p, f, delta, w_star, den, gamma, h1, h2, lambdaSGN, z, D_wave, SS, slope, TH
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
     !===
@@ -850,7 +844,7 @@ CONTAINS
       CASE(1) ! h water height
           ! for water height
             DO i = 1, SIZE(rr,2)
-              IF (rr(1,i) - SS< 1.d-4) THEN
+              IF (rr(1,i) - SS< 0.d0) THEN
                  bathi = 1.d0
               ELSE
                  bathi = 1.d0 + slope * (rr(1,i)-SS)
@@ -863,7 +857,7 @@ CONTAINS
         IF (t.LE.1.d-10) THEN
 
           DO i = 1, SIZE(rr,2)
-            IF (rr(1,i) - SS< 1.d-4) THEN
+            IF (rr(1,i) - SS< 0.d0) THEN
                bathi = 1.d0
             ELSE
                bathi = 1.d0 + slope * (rr(1,i)-SS)
@@ -879,7 +873,7 @@ CONTAINS
       CASE(3) ! v*h component of flow rate q, just 0 for now
        ! for initial velocity u
          DO i = 1, SIZE(rr,2)
-           IF (rr(1,i) - SS< 1.d-4) THEN
+           IF (rr(1,i) - SS< 0.d0) THEN
               bathi = 1.d0
            ELSE
               bathi = 1.d0 + slope * (rr(1,i)-SS)
@@ -892,7 +886,7 @@ CONTAINS
          ! initial condition from FAVRIE/GAVRILYUK paper
          IF (t.LE.1.d-10) THEN
            DO i = 1, SIZE(rr,2)
-             IF (rr(1,i) - SS< 1.d-4) THEN
+             IF (rr(1,i) - SS< 0.d0) THEN
                 bathi = 1.d0
              ELSE
                 bathi = 1.d0 + slope * (rr(1,i)-SS)
@@ -905,7 +899,7 @@ CONTAINS
       CASE(5) ! w*h component of flow rate r ! this could be wrong
         IF (t.LE.1.d-10) THEN
              DO i = 1, SIZE(rr,2)
-               IF (rr(1,i) - SS< 1.d-4) THEN
+               IF (rr(1,i) - SS< 0.d0) THEN
                   bathi = 1.d0
                ELSE
                   bathi = 1.d0 + slope * (rr(1,i)-SS)

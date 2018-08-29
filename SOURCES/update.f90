@@ -400,8 +400,11 @@ CONTAINS
                 xx = xx - cij(d)%aa(p)*(vv(k,d,j)*ratji + vv(k,d,i)*ratij)
              END DO
              rk(k,i) = rk(k,i) + xx + dij%aa(p)*(un(k,j)*ratji-un(k,i)*ratij)
+             IF (dij%aa(p) > 70.d0) THEN
+               WRITE(*,*) 'dij ', dij%aa(p)
+               STOP
+             END IF
           END DO
-          ! it seems like here we are substracting grad (1/2 g h^2) + h grad(z)
           DO k = 1, k_dim
              rk(k+1,i) = rk(k+1,i) &
                   - 0.5d0*inputs%gravity*(Hstarji**2 - Hstarij**2)*cij(k)%aa(p)
@@ -491,7 +494,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
-    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant, one_o_h
+    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant, eta
     INTEGER :: d, i, j, k, p, n
 
     ! rest of pressure term that's not 1/2 g h^2 so just pTilde (see our paper)
@@ -499,57 +502,31 @@ CONTAINS
     DO n = 1,mesh%np
 
       localMeshSize(n) = SQRT(lumped(n))
+      paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(3.d0 * localMeshSize(n))
 
-      IF (inputs%type_test==13) THEN
-        paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
-        ! this is eta/h without using one_over_h
+      SELECT CASE(inputs%type_test)
+      CASE (13)
+        eta(n) = un(4,n) / un(1,n)
         x(n) = un(4,n) / un(1,n)**2
-      ELSE
-        ! this is eta/h with using one_over_h
+      CASE (14)
+        eta(n) = un(4,n) * one_over_h(n)
         x(n) = un(4,n) * one_over_h(n) * one_over_h(n)
+      END SELECT
 
-        IF (un(4,n) * one_over_h(n) < localMeshSize(n)*0.1 ) THEN
-          paper_constant(n) = 0.d0
-        ELSE
-          paper_constant(n) = inputs%lambdaSGN * inputs%gravity/(3.d0 * localMeshSize(n))
-        END IF
-        
-      END IF
-
-      !x(n) = 2.d0 * un(4,n) / (un(1,n)**2 + MAX(localMeshSize(n), un(1,n))**2)
-
-
-    END DO
-
-    ! we first define psi,pTilde,s for all points
-    DO n = 1,mesh%np
-    IF (inputs%type_test==13) THEN
-      ! this is psi from our paper, see Remark 2.5
+      ! this is psi
       psi(n) = 12.d0 * (x(n)-1.d0)
       ! this is the source term
-      s(n) = 3.d0*paper_constant(n) * (un(4,n)/un(1,n))**2 * psi(n)
-      ! this is pTilde from our paper
+      s(n) = 3.d0*paper_constant(n) * eta(n)**2 * psi(n)
+      ! this is pTilde
       pTilde(n) = paper_constant(n) * un(1,n)**3 &
            * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
-      ELSE
-      ! this is pTilde from our paper usint cut off
-      IF (un(4,n) * one_over_h(n) < localMeshSize(n)*0.1 ) THEN
-        pTilde(n) = 0.d0
-      ELSE
-      pTilde(n) = paper_constant(n) * un(1,n)**3 &
-           * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
-      END IF
-      ! this is the source term
-      s(n) = 3.d0*paper_constant(n) * (un(4,n) * one_over_h(n))**2 * psi(n)
-    END IF
     END DO
-
 
     DO i = 1, mesh%np
        ! update momentum equations here
        DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
           j = cij(1)%ja(p)
-            DO k = 1, k_dim !  doing 2D in 1D setting so only update x momentum equation
+            DO k = 1, 1
                rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
             END DO
        END DO
