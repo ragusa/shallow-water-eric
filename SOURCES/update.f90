@@ -313,6 +313,12 @@ CONTAINS
              !CALL compute_lambda(ul,ur,nij,lambda)
              CALL compute_lambda_vacc(ul,ur,nij,lambda)
              dij%aa(p) = norm_cij*lambda
+
+             IF (lambda > 100.d0) THEN
+               WRITE(*,*) 'lambda ', lambda
+               STOP
+             END IF
+             
           ELSE
              dij%aa(p) = 0.d0
           END IF
@@ -400,11 +406,8 @@ CONTAINS
                 xx = xx - cij(d)%aa(p)*(vv(k,d,j)*ratji + vv(k,d,i)*ratij)
              END DO
              rk(k,i) = rk(k,i) + xx + dij%aa(p)*(un(k,j)*ratji-un(k,i)*ratij)
-             IF (dij%aa(p) > 70.d0) THEN
-               WRITE(*,*) 'dij ', dij%aa(p)
-               STOP
-             END IF
           END DO
+
           DO k = 1, k_dim
              rk(k+1,i) = rk(k+1,i) &
                   - 0.5d0*inputs%gravity*(Hstarji**2 - Hstarij**2)*cij(k)%aa(p)
@@ -502,43 +505,33 @@ CONTAINS
     DO n = 1,mesh%np
 
       localMeshSize(n) = SQRT(lumped(n))
-      paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(3.d0 * localMeshSize(n))
-
-      SELECT CASE(inputs%type_test)
-      CASE (13)
-        eta(n) = un(4,n) / un(1,n)
-        x(n) = un(4,n) / un(1,n)**2
-      CASE (14)
-        eta(n) = un(4,n) * one_over_h(n)
-        x(n) = un(4,n) * one_over_h(n) * one_over_h(n)
-      END SELECT
-
-      ! this is psi
-      psi(n) = 12.d0 * (x(n)-1.d0)
+      paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(localMeshSize(n))
+      ! define eta as q1 * one_over_h where q1 = eta * h
+      eta(n) = un(4,n) * one_over_h(n)
       ! this is the source term
-      s(n) = 3.d0*paper_constant(n) * eta(n)**2 * psi(n)
+      s(n) = paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n) - eta(n))
       ! this is pTilde
-      pTilde(n) = paper_constant(n) * un(1,n)**3 &
-           * (2.d0 + 4.d0 * (x(n)**3) - 6.d0*(x(n)**4))
+      pTilde(n) = paper_constant(n)/3.d0 * (un(1,n) - eta(n)) * (un(1,n) + eta(n)) * eta(n)
+
     END DO
 
     DO i = 1, mesh%np
+
        ! update momentum equations here
        DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
           j = cij(1)%ja(p)
-            DO k = 1, 1
+            DO k = 1, k_dim
                rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
             END DO
        END DO
-
-      !h w from 4th equation
-      DO k = 4, 4
-          rk(k,i) = rk(k,i) + lumped(i) * un(5,i)
-      END DO
-      ! - s term from last equation
-      DO k = 5, 5
-            rk(k,i) = rk(k,i) - lumped(i) * s(i)
-      END DO
+       !update h w equation
+       DO k = 4, 4
+           rk(k,i) = rk(k,i) + lumped(i) * un(5,i)
+       END DO
+       ! - s term from last equation
+       DO k = 5, 5
+             rk(k,i) = rk(k,i) - lumped(i) * s(i)
+       END DO
 
     END DO
 

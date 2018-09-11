@@ -1,17 +1,15 @@
 ===Name of directory for mesh file===
 '../MESHES/SGN_RUN_UP'
-'../MESHES/SGN_CANAL'
 ===Name of mesh file===
 rectangle.1.FEM
 ===Test case number===
 14
 ===Final time===
-6.5
+7.5
 ===CFL number===
 0.1d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
-'fct'
 ===Type of first-order viscosity===
 'type1'
 ===Alpha limitation? (True/False)===

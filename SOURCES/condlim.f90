@@ -226,7 +226,6 @@ CONTAINS
          inputs%gravity = 9.81d0
          h1 = 10.d0 / 100.0d0
          h2 = 11.d0 / 100.0d0
-         x0 = 2.d0
          max_water_h = h2
          DO i = 1, mesh%np
            bath(i) = 0.d0
@@ -235,11 +234,9 @@ CONTAINS
          inputs%gravity = 9.81d0
          h1 = 1.05d0
          h2 = h1 + 0.28
-         x0 = 10.0d0
          max_water_h = h2
-         SS = 32.5
+         SS = 32.5 !SS for Starting Slope location
          slope = 1.d0 / 19.85d0
-        !inputs%Tfinal = inputs%TFinal * SQRT(inputs%gravity / h1)
          DO i = 1, mesh%np
             IF (mesh%rr(1,i) - SS < 0.d0) THEN
                  bath(i) = 1.d0
@@ -343,7 +340,8 @@ CONTAINS
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
          xshock, h_pre_shock, h_post_shock, bath_shock, bathi, Ber_pre, Ber_post, &
          alpha, beta, chi, vel, xs, hcone, htop, radius, rcone, scone, bx, kappa, &
-         s, htilde, p, f, delta, w_star, den, gamma, h1, h2, lambdaSGN, z, D_wave, SS, slope, TH
+         s, htilde, p, f, delta, w_star, den, gamma, h1, h2, lambdaSGN, z, D_wave, SS, slope, TH, &
+         sechSqd, hPrime
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
     !===
@@ -777,61 +775,61 @@ CONTAINS
       h2 = 11.d0 / 100.0d0
       x0 = 2.d0  ! we want largest solitary wave height starting here
       D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
-      z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
+      z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2) )
 
       SELECT CASE(k)
       CASE(1) ! h water height
-          ! for water height
-            DO i = 1, SIZE(rr,2)
-              bathi = 0.d0
-              htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-              vv(i) = max(htilde,0.d0)
-            END DO
+          DO i = 1, SIZE(rr,2)
+            bathi = 0.d0
+            sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            htilde= h1 + (h2 - h1)*sechSqd
+            vv(i) = max(htilde,0.d0)
+          END DO
 
       CASE(2) ! u*h component of flow rate q
           DO i = 1, SIZE(rr,2)
             bathi = 0.d0
-            htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            htilde= h1 + (h2 - h1)*sechSqd
             vv(i) = MAX(htilde,0.d0)
-            vv(i) = vv(i) * D_wave - h1 * D_wave
+            vv(i) = D_wave * (vv(i) - h1)
           END DO
 
-       !END IF
       CASE(3) ! v*h component of flow rate q, just 0 for now
-       ! for initial velocity u
-         DO i = 1, SIZE(rr,2)
+          DO i = 1, SIZE(rr,2)
            bathi = 0.d0
-           htilde =  h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+           sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+           htilde= h1 + (h2 - h1)*sechSqd
            vv(i) = MAX(htilde,0.d0)
            vv(i) = vv(i) * 0.d0
          END DO
-      CASE(4) ! eta*h component of flow rate r
-         ! initial condition from FAVRIE/GAVRILYUK paper
+      CASE(4) ! eta*h component of flow rate
          IF (t.LE.1.d-10) THEN
            DO i = 1, SIZE(rr,2)
              bathi = 0.d0
-             htilde = h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+             sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+             htilde= h1 + (h2 - h1)*sechSqd
              vv(i) = MAX(htilde,0.d0)
              vv(i) = vv(i)*vv(i)
            END DO
          END IF
-      CASE(5) ! w*h component of flow rate r ! this could be wrong
+      CASE(5) ! w*h component of flow rate
         IF (t.LE.1.d-10) THEN
-             DO i = 1, SIZE(rr,2)
-               bathi = 0.d0
-               htilde = h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-               vv(i) = MAX(htilde,0.d0)
-               vv(i) = - D_wave * h1 * ((h1 - h2)*z*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0 &
-               * TANH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))
-             END DO
+           DO i = 1, SIZE(rr,2)
+             bathi = 0.d0
+             sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+             hPrime = (h1 - h2) * z * sechSqd * TANH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t))
+             vv(i) = - D_wave * h1 * hPrime
+           END DO
         END IF
       END SELECT
+
     CASE(14) ! Added to include hyperbolic SGN model, solitary wave run up (Eric T., 05/21/2018)
       ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
       ! initial constants go here
       inputs%gravity = 9.81d0
-      h1 = 1.05d0
-      h2 = 1.05d0 + 0.28d0
+      h1 = 1.d0 + 0.05d0
+      h2 = h1 + 0.28d0
       x0 = 10.0d0  ! we want largest solitary wave height starting here
       D_wave = SQRT(inputs%gravity * h2) ! constant wave velocity
       z = SQRT( ( 3.0d0 * (h2 - h1)) / (h2 * h1**2.0d0) )
@@ -842,19 +840,18 @@ CONTAINS
 
       SELECT CASE(k)
       CASE(1) ! h water height
-          ! for water height
-            DO i = 1, SIZE(rr,2)
-              IF (rr(1,i) - SS< 0.d0) THEN
-                 bathi = 1.d0
-              ELSE
-                 bathi = 1.d0 + slope * (rr(1,i)-SS)
-              END IF
-              htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-              vv(i) = max(htilde - bathi,0.d0)
-            END DO
+          DO i = 1, SIZE(rr,2)
+            IF (rr(1,i) - SS< 0.d0) THEN
+               bathi = 1.d0
+            ELSE
+               bathi = 1.d0 + slope * (rr(1,i)-SS)
+            END IF
+            sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            htilde= h1 + (h2 - h1)*sechSqd
+            vv(i) = max(htilde - bathi,0.d0)
+          END DO
 
       CASE(2) ! u*h component of flow rate q
-        IF (t.LE.1.d-10) THEN
 
           DO i = 1, SIZE(rr,2)
             IF (rr(1,i) - SS< 0.d0) THEN
@@ -862,28 +859,26 @@ CONTAINS
             ELSE
                bathi = 1.d0 + slope * (rr(1,i)-SS)
             END IF
-            htilde= h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-             vv(i) = MAX(htilde,0.d0)
-            ! vv(i) = vv(i) * D_wave - h1 * D_wave
-            vv(i) = D_wave * (vv(i)- bathi - (h1 - bathi))
+            sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+            htilde= h1 + (h2 - h1)*sechSqd
+            vv(i) = MAX(htilde,0.d0)
+            vv(i) = D_wave * (vv(i) - bathi - (h1 - bathi))
           END DO
 
-        END IF
 
       CASE(3) ! v*h component of flow rate q, just 0 for now
-       ! for initial velocity u
          DO i = 1, SIZE(rr,2)
            IF (rr(1,i) - SS< 0.d0) THEN
               bathi = 1.d0
            ELSE
               bathi = 1.d0 + slope * (rr(1,i)-SS)
            END IF
-           htilde =  h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+           sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+           htilde= h1 + (h2 - h1)*sechSqd
            vv(i) = MAX(htilde,0.d0)
            vv(i) = vv(i) * 0.d0
          END DO
       CASE(4) ! eta*h component of flow rate r
-         ! initial condition from FAVRIE/GAVRILYUK paper
          IF (t.LE.1.d-10) THEN
            DO i = 1, SIZE(rr,2)
              IF (rr(1,i) - SS< 0.d0) THEN
@@ -891,25 +886,27 @@ CONTAINS
              ELSE
                 bathi = 1.d0 + slope * (rr(1,i)-SS)
              END IF
-             htilde = h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-             vv(i) = MAX(htilde- bathi,0.d0)
-             vv(i) = vv(i)*vv(i)
+             sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+             htilde= h1 + (h2 - h1)*sechSqd
+             vv(i) = max(htilde - bathi,0.d0)
+             vv(i) = vv(i) * vv(i)
            END DO
          END IF
-      CASE(5) ! w*h component of flow rate r ! this could be wrong
+      CASE(5) ! w*h component of flow rate
         IF (t.LE.1.d-10) THEN
-             DO i = 1, SIZE(rr,2)
-               IF (rr(1,i) - SS< 0.d0) THEN
-                  bathi = 1.d0
-               ELSE
-                  bathi = 1.d0 + slope * (rr(1,i)-SS)
-               END IF
-               !htilde = h1 + (h2 - h1)*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
-               !vv(i) = MAX(htilde,0.d0)
-               vv(i) = - D_wave * h1 * ((h1 - h2)*z*(1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0 &
-               * TANH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))
-               !vv(i) = 0.d0
-             END DO
+           DO i = 1, SIZE(rr,2)
+             sechSqd = (1.0d0/COSH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t)))**2.0d0
+             htilde= h1 + (h2 - h1)*sechSqd
+             hPrime = (h1 - h2) * z * sechSqd * TANH(1.0d0/2.0d0*z*(rr(1,i)-x0-D_wave*t))
+             IF (rr(1,i) - SS< 0.d0) THEN
+                bathi = 1.d0
+                vv(i) = - D_wave * (h1-bathi) * hPrime
+             ELSE
+                bathi = 1.d0 + slope * (rr(1,i)-SS)
+                vv(i) = - D_wave * ( (h1-bathi) * hPrime + (htilde -h1)*slope )
+             END IF
+
+           END DO
         END IF
       END SELECT
 
