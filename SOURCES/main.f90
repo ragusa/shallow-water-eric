@@ -9,12 +9,12 @@ PROGRAM shallow_water
   USE mesh_interpolation
   IMPLICIT NONE
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: rk, un, ui, uo
-  REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie
+  REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie, hetamovie
   INTEGER                                   :: it, it_max, kit=0
   REAL(KIND=8)                              :: tps, to, q1, q2, q3, dt_frame, t_frame=0.d0
   REAL(KIND=8)                              :: hmax0
   INTEGER :: nb_frame=200, i, n
-  CHARACTER(LEN=200) :: header
+  CHARACTER(LEN=200) :: header, etaHeader
   CHARACTER(LEN=3)   :: frame
   CALL read_my_data('data')
   CALL construct_mesh
@@ -26,7 +26,7 @@ PROGRAM shallow_water
   END IF
 
   ALLOCATE(rk(inputs%syst_size,mesh%np),un(inputs%syst_size,mesh%np),&
-       ui(inputs%syst_size,mesh%np),uo(inputs%syst_size,mesh%np),hmovie(mesh%np))
+       ui(inputs%syst_size,mesh%np),uo(inputs%syst_size,mesh%np),hmovie(mesh%np),hetamovie(mesh%np))
   inputs%time =0.d0
   CALL init(un)
   hmax0 = MAXVAL(un(1,:))
@@ -127,24 +127,33 @@ PROGRAM shallow_water
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
+                    hetamovie(i) = -1.d-7*hmax0+bath(i)
                  ELSE
                     hmovie(i) = un(1,i)+bath(i)
+                    hetamovie(i) = un(4,i)+bath(i)
                  END IF
               END DO
 
               WRITE(frame,'(I3)') kit
               header = 'hpz_'//trim(adjustl(frame))//'.vtk'
+              etaHeader = 'hetapz_'//trim(adjustl(frame))//'.vtk'
+              CALL vtk_2d(mesh,hetamovie,13,etaHeader)
               CALL vtk_2d(mesh, hmovie, 10, header)
               header = 'h_'//trim(adjustl(frame))//'.vtk'
+              etaHeader='heta_'//trim(adjustl(frame))//'.vtk'
 
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = 0.d0
+                    !hetamovie(i) = 0.d0
                  ELSE
                     hmovie(i) = un(1,i)
+                    !hetamovie(i) = un(4,i)
                  END IF
+              hetamovie(i) = un(4,i)   
               END DO
               CALL vtk_2d(mesh, hmovie, 10, header)
+              CALL vtk_2d(mesh,hetamovie,13,etaHeader)
               !CALL plot_scalar_field(mesh%jj, mesh%rr, hmovie, 'h_'//trim(adjustl(frame))//'.plt')
            END IF
         END IF

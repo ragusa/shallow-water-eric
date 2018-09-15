@@ -314,11 +314,11 @@ CONTAINS
              CALL compute_lambda_vacc(ul,ur,nij,lambda)
              dij%aa(p) = norm_cij*lambda
 
-             IF (lambda > 100.d0) THEN
-               WRITE(*,*) 'lambda ', lambda
-               STOP
-             END IF
-             
+             ! IF (lambda > 100.d0) THEN
+             !   WRITE(*,*) 'lambda ', lambda
+             !   STOP
+             ! END IF
+
           ELSE
              dij%aa(p) = 0.d0
           END IF
@@ -349,7 +349,7 @@ CONTAINS
              DO d = 1, k_dim
                 nij(d) = cij(d)%aa(p) !=== definition of cij is the same as in the paper
              END DO
-             ! changed from 2:, to 2:3 just to make things work for now.
+             ! changed from 2:, to 2:3 ! ERIC
              ul = un(2:3,i)*(2*un(1,i)/(un(1,i)**2+max(un(1,i),inputs%htiny)**2))
              ur = un(2:3,j)*(2*un(1,j)/(un(1,j)**2+max(un(1,j),inputs%htiny)**2))
              !ul=un(2:,i)/max(un(1,i),inputs%htiny)
@@ -497,26 +497,32 @@ CONTAINS
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
-    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, x, localMeshSize, paper_constant, eta
+    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, localMeshSize, paper_constant, eta
     INTEGER :: d, i, j, k, p, n
 
-    ! rest of pressure term that's not 1/2 g h^2 so just pTilde (see our paper)
+    ! rest of pressure term that's not 1/2 g h^2 so just pTilde
     ! define everything for all points here
     DO n = 1,mesh%np
 
       localMeshSize(n) = SQRT(lumped(n))
       paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(localMeshSize(n))
+
       ! define eta as q1 * one_over_h where q1 = eta * h
       eta(n) = un(4,n) * one_over_h(n)
-      ! this is the source term
-      s(n) = paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n) - eta(n))
+
       ! this is pTilde
-      pTilde(n) = paper_constant(n)/3.d0 * (un(1,n) - eta(n)) * (un(1,n) + eta(n)) * eta(n)
+      IF (eta(n) < 0.d0) THEN
+        pTilde(n) = 0.d0
+      ELSE
+        pTilde(n) = paper_constant(n)/3.d0 * (un(1,n)**2 * eta(n) - eta(n)**3)
+      END IF
+
+      ! this is the s in the source term
+      s(n) = paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n)-eta(n))
 
     END DO
 
     DO i = 1, mesh%np
-
        ! update momentum equations here
        DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
           j = cij(1)%ja(p)
