@@ -510,15 +510,17 @@ CONTAINS
       ! define eta as q1 * one_over_h where q1 = eta * h
       eta(n) = un(4,n) * one_over_h(n)
 
-      ! this is pTilde
-      IF (eta(n) < 0.d0) THEN
-        pTilde(n) = 0.d0
+      ! this is pTilde and source term
+      IF (eta(n) > 1.d-8) THEN
+        pTilde(n) = paper_constant(n)/3.d0 * (un(1,n)-eta(n)) * eta(n) * (un(1,n) + eta(n))
+        s(n) = -paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n)-eta(n))
       ELSE
-        pTilde(n) = paper_constant(n)/3.d0 * (un(1,n)**2 * eta(n) - eta(n)**3)
+        pTilde(n) = 0.d0
+        s(n) = -paper_constant(n) * (2.d0 * un(4,n))
       END IF
 
       ! this is the s in the source term
-      s(n) = paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n)-eta(n))
+
 
     END DO
 
@@ -536,7 +538,7 @@ CONTAINS
        END DO
        ! - s term from last equation
        DO k = 5, 5
-             rk(k,i) = rk(k,i) - lumped(i) * s(i)
+             rk(k,i) = rk(k,i) + lumped(i) * s(i)
        END DO
 
     END DO
@@ -611,8 +613,11 @@ CONTAINS
        CALL my_friction(un,rk)
      CASE(12)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13,14)
+     CASE(13)
        CALL mSGN_RHS(un,rk) ! (Eric T.)
+     CASE(14)
+       CALL mSGN_RHS(un,rk)
+       CALL friction(un,rk)
     END SELECT
   END SUBROUTINE smb_2_roundoff
 
@@ -669,8 +674,11 @@ CONTAINS
        CALL my_friction(un,rk) ! (Eric T.)
      CASE(12)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13,14)
+     CASE(13)
        CALL mSGN_RHS(un,rk) ! Eric T.
+     CASE(14)
+       CALL mSGN_RHS(un,rk)
+       CALL friction(un,rk)
     END SELECT
   END SUBROUTINE smb_2
 

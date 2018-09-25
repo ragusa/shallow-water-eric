@@ -145,12 +145,12 @@ PROGRAM shallow_water
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = 0.d0
-                    !hetamovie(i) = 0.d0
+                    hetamovie(i) = 0.d0
                  ELSE
                     hmovie(i) = un(1,i)
-                    !hetamovie(i) = un(4,i)
+                    hetamovie(i) = un(4,i)
                  END IF
-              hetamovie(i) = un(4,i)   
+              !hetamovie(i) = un(4,i)   
               END DO
               CALL vtk_2d(mesh, hmovie, 10, header)
               CALL vtk_2d(mesh,hetamovie,13,etaHeader)
