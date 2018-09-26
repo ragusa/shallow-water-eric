@@ -511,16 +511,13 @@ CONTAINS
       eta(n) = un(4,n) * one_over_h(n)
 
       ! this is pTilde and source term
-      IF (eta(n) > 1.d-8) THEN
+      IF (eta(n) > 1.d-14) THEN
         pTilde(n) = paper_constant(n)/3.d0 * (un(1,n)-eta(n)) * eta(n) * (un(1,n) + eta(n))
         s(n) = -paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n)-eta(n))
       ELSE
         pTilde(n) = 0.d0
         s(n) = -paper_constant(n) * (2.d0 * un(4,n))
       END IF
-
-      ! this is the s in the source term
-
 
     END DO
 

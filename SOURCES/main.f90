@@ -10,7 +10,7 @@ PROGRAM shallow_water
   IMPLICIT NONE
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: rk, un, ui, uo
   REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie, hetamovie
-  INTEGER                                   :: it, it_max, kit=0
+  INTEGER                                   :: it, it_max, kit=0,counter
   REAL(KIND=8)                              :: tps, to, q1, q2, q3, dt_frame, t_frame=0.d0
   REAL(KIND=8)                              :: hmax0
   INTEGER :: nb_frame=200, i, n
@@ -59,7 +59,9 @@ PROGRAM shallow_water
 
 
   !DO it = 1, it_max
+  counter = 0
   DO WHILE(inputs%time<inputs%Tfinal)
+    counter = counter + 1
      !===Paraboloid seems to work with inputs%htiny=1d-4
      !inputs%htiny=aspect_ratio*inputs%gravity*inputs%dt**2/2
      !inputs%htiny = 10*aspect_ratio**2*MINVAL(lumped)/max_water_h
@@ -91,6 +93,16 @@ PROGRAM shallow_water
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
      inputs%time = to + inputs%dt
      write(*,*) 'time ', inputs%time, inputs%dt
+
+     !!!! outputing time steps !!!!
+
+     IF (inputs%lambdaSGN > 0.d0) THEN
+       open (unit = 7, file = "time_steps_GN.txt")
+       write (7,*) inputs%dt
+     ELSE
+       open (unit = 8, file = "time_steps_SW.txt")
+       write (8,*) inputs%dt
+     END IF
 
      SELECT CASE(inputs%type_test)
      CASE(1,2,10)
@@ -150,7 +162,7 @@ PROGRAM shallow_water
                     hmovie(i) = un(1,i)
                     hetamovie(i) = un(4,i)
                  END IF
-              !hetamovie(i) = un(4,i)   
+              !hetamovie(i) = un(4,i)
               END DO
               CALL vtk_2d(mesh, hmovie, 10, header)
               CALL vtk_2d(mesh,hetamovie,13,etaHeader)
@@ -163,6 +175,7 @@ PROGRAM shallow_water
 
   tps = user_time() - tps
   WRITE(*,*) 'total time', tps, 'Time per time step and dof', tps/(it_max*mesh%np), it_max
+  write (*,*) 'Total iterations', counter
 
   CALL compute_errors
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:)+bath, 'HplusZ.plt')

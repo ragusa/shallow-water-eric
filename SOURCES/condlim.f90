@@ -237,7 +237,7 @@ CONTAINS
          h0 = 1.d0
          a = 0.3d0 ! amplitude
          slope = 1.d0 / 19.85d0
-         z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1 + a))) ! wavenumber
+         z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a))) ! wavenumber
          k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3))
          L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
          c = SQRT(inputs%gravity * (1.d0 + a) * h0)
@@ -246,6 +246,7 @@ CONTAINS
 
          DO i = 1, mesh%np
            bath(i) = MAX((mesh%rr(1,i) ) * slope, -h0)
+           !bath(i) = -h0
          END DO
 
     CASE DEFAULT
@@ -843,6 +844,7 @@ CONTAINS
       CASE(1) ! h water height
           DO i = 1, SIZE(rr,2)
             bathi = MAX((rr(1,i)) * slope, -h0)
+            !bathi = -h0
             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
             htilde= a * h0 * sechSqd
             vv(i) = MAX(htilde - bathi,0.d0)
@@ -851,6 +853,7 @@ CONTAINS
       CASE(2) ! u*h component of flow rate q
         DO i = 1, SIZE(rr,2)
           bathi = MAX((rr(1,i) ) * slope, -h0)
+          !bathi = -h0
           sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
           htilde= a * h0 * sechSqd
           vv(i) = MAX(htilde-bathi,0.d0)
@@ -860,6 +863,7 @@ CONTAINS
       CASE(3) ! v*h component of flow rate q, just 0 for now
         DO i = 1, SIZE(rr,2)
           bathi = MAX((rr(1,i) ) * slope, -h0)
+          !bathi = -h0
           sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
           htilde= a * h0 * sechSqd
           vv(i) = MAX(htilde - bathi,0.d0)
@@ -869,6 +873,7 @@ CONTAINS
          IF (t.LE.1.d-10) THEN
            DO i = 1, SIZE(rr,2)
              bathi = MAX((rr(1,i)) * slope, -h0)
+             !bathi = -h0
              sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
              htilde= a * h0 * sechSqd
              vv(i) = MAX(htilde - bathi,0.d0)
@@ -876,9 +881,10 @@ CONTAINS
            END DO
          END IF
       CASE(5) ! w*h component of flow rate
-        IF (t.LE.1.d-10) THEN
+        IF (t.LE.1.d-14) THEN
            DO i = 1, SIZE(rr,2)
              bathi = MAX((rr(1,i) ) * slope, -h0)
+             !bathi = -h0
              sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
              htilde= a * h0 * sechSqd
              hprime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
