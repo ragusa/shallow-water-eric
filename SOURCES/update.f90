@@ -350,8 +350,8 @@ CONTAINS
                 nij(d) = cij(d)%aa(p) !=== definition of cij is the same as in the paper
              END DO
              ! changed from 2:, to 2:3 ! ERIC
-             ul = un(2:3,i)*(2*un(1,i)/(un(1,i)**2+max(un(1,i),inputs%htiny)**2))
-             ur = un(2:3,j)*(2*un(1,j)/(un(1,j)**2+max(un(1,j),inputs%htiny)**2))
+             ul = un(2:k_dim+1,i)*(2*un(1,i)/(un(1,i)**2+max(un(1,i),inputs%htiny)**2))
+             ur = un(2:k_dim+1,j)*(2*un(1,j)/(un(1,j)**2+max(un(1,j),inputs%htiny)**2))
              !ul=un(2:,i)/max(un(1,i),inputs%htiny)
              !ur=un(2:,j)/max(un(1,j),inputs%htiny)
              lambda=MAX(MAX(-SUM(nij*ul),0.d0),MAX(SUM(nij*ur),0.d0))
@@ -422,10 +422,9 @@ CONTAINS
        CALL my_friction(un,rk)
      CASE(12) ! (Eric T.)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13,14) ! (Eric T.)
+     CASE(13,14,15,16) ! (Eric T.)
        CALL mSGN_RHS(un,rk) ! (Eric T. )
     END SELECT
-
   END SUBROUTINE smb_1
 
   SUBROUTINE friction(un,rk)
@@ -495,31 +494,51 @@ CONTAINS
     USE mesh_handling
     USE boundary_conditions
     IMPLICIT NONE
+    !REAL(KIND=8), INTENT(OUT) :: avgMeshSize
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
-    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, localMeshSize, paper_constant, eta
+    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, localMeshSize, paper_constant, &
+                                        h, hw, heta,eta, hetaSource, eta_over_h, ratio, &
+                                        hSqd_GammaP, heta_GammaP, alpha
+    REAL(KIND=8) :: x0
     INTEGER :: d, i, j, k, p, n
 
-    ! rest of pressure term that's not 1/2 g h^2 so just pTilde
     ! define everything for all points here
+    h = un(1,:)
+    heta = un(inputs%syst_size-1,:)
+    eta = un(inputs%syst_size-1,:) * compute_one_over_h(un(1,:))
+    eta_over_h = un(inputs%syst_size-1,:) * compute_one_over_h(un(1,:))**2
+    hw = un(inputs%syst_size,:)
+    ratio =  2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny)
+
+    IF (MINVAL(eta)<-1.d-14*inputs%max_water_h) THEN
+      !WRITE(*,*) 'eta negative', MINVAL(eta)
+      !STOP
+    END IF
+
     DO n = 1,mesh%np
-
       localMeshSize(n) = SQRT(lumped(n))
+      alpha(n) = inputs%lambdaSGN/(3*localMeshSize(n))
       paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(localMeshSize(n))
-
-      ! define eta as q1 * one_over_h where q1 = eta * h
-      eta(n) = un(4,n) * one_over_h(n)
-
-      ! this is pTilde and source term
-      IF (eta(n) > 1.d-14) THEN
-        pTilde(n) = paper_constant(n)/3.d0 * (un(1,n)-eta(n)) * eta(n) * (un(1,n) + eta(n))
-        s(n) = -paper_constant(n) * (un(1,n) - 3.d0 * eta(n)) * (un(1,n)-eta(n))
-      ELSE
-        pTilde(n) = 0.d0
-        s(n) = -paper_constant(n) * (2.d0 * un(4,n))
-      END IF
-
     END DO
+
+      ! this is stuff for pTilde and source terms
+      DO i = 1, mesh%np
+        x0 =  min(2.d0,SQRT(1.d0+1.d0/(2*alpha(i)*(max(eta(i),0.d0)+inputs%htiny))))
+        IF (eta(i) .LE. 0.d0) THEN
+          pTilde(i) = 0.d0
+          hSqd_GammaP(i) = 0.d0
+          heta_GammaP(i) = 0.d0
+        ELSE IF (eta(i).LE.x0*h(i)) THEN
+          pTilde(i) = -alpha(i)*inputs%gravity*eta(i)*(eta(i)**2-h(i)**2)
+          hSqd_Gammap(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
+          heta_Gammap(i) = 3*eta(i)**2*eta_over_h(i)+un(inputs%syst_size-1,i)-4*eta(i)**2
+        ELSE
+          pTilde(i) = -alpha(i)*inputs%gravity*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
+          hSqd_Gammap(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
+          heta_Gammap(i) = 4*(x0-1.d0)*eta(i)**2 + (1-x0**2)*un(inputs%syst_size-1,i)
+        END IF
+      END DO
 
     DO i = 1, mesh%np
        ! update momentum equations here
@@ -529,13 +548,13 @@ CONTAINS
                rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
             END DO
        END DO
-       !update h w equation
-       DO k = 4, 4
-           rk(k,i) = rk(k,i) + lumped(i) * un(5,i)
+       !update heta equation with source term
+       DO k = inputs%syst_size - 1, inputs%syst_size - 1
+           rk(k,i) = rk(k,i) + lumped(i)*hw(i)*ratio(i)**3
        END DO
-       ! - s term from last equation
-       DO k = 5, 5
-             rk(k,i) = rk(k,i) + lumped(i) * s(i)
+       !update hw equation with source term
+       DO k = inputs%syst_size, inputs%syst_size
+             rk(k,i) = rk(k,i) - paper_constant(i)*lumped(i)*hSqd_Gammap(i)*ratio(i)**3
        END DO
 
     END DO
@@ -615,6 +634,11 @@ CONTAINS
      CASE(14)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
+     CASE(15)
+       CALL mSGN_RHS(un,rk)
+     CASE(16)
+       CALL mSGN_RHS(un,rk)
+       CALL friction(un,rk)
     END SELECT
   END SUBROUTINE smb_2_roundoff
 
@@ -674,6 +698,11 @@ CONTAINS
      CASE(13)
        CALL mSGN_RHS(un,rk) ! Eric T.
      CASE(14)
+       CALL mSGN_RHS(un,rk)
+       CALL friction(un,rk)
+     CASE(15)
+       CALL mSGN_RHS(un,rk)
+     CASE(16)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
     END SELECT
@@ -810,13 +839,13 @@ SUBROUTINE check_hmin(h)
  IMPLICIT NONE
  REAL(KIND=8), DIMENSION(:,:) :: h
  SELECT CASE(inputs%type_test)
- CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14)
+ CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
  IF (MINVAL(h(1,:))<0.d0) THEN
     WRITE(*,*) 'Min h<0, STOP', MINVAL(h)
     WRITE(*,*) 'MAXVAL(vel)', MAXVAL(ABS(velocity(1,:))), MAXVAL(ABS(velocity(2,:)))
     STOP
  END IF
-END SELECT
+ END SELECT
 END SUBROUTINE check_hmin
 
 

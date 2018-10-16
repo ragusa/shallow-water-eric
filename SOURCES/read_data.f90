@@ -25,9 +25,10 @@ MODULE input_data
      INTEGER, DIMENSION(:), POINTER :: Dir_list
      INTEGER                        :: syst_size
      REAL(KIND=8)                   :: htiny
-     REAL(KIND=8)                   :: epsilon
+     REAL(KIND=8)                   :: epsilon, max_water_h,epsilon_htiny
      REAL(KIND=8)                   :: lambdaSGN
-     REAL(KIND=8)                   :: localTriangleArea
+     REAL(KIND=8)                   :: x1, x2, y1, y2
+     REAL(KIND=8)                   :: refinement
   END type my_data
   TYPE(my_data), PUBLIC  :: inputs
   PRIVATE
@@ -37,7 +38,8 @@ CONTAINS
     IMPLICIT NONE
     INTEGER, PARAMETER           :: in_unit=21
     CHARACTER(len=*), INTENT(IN) :: data_fichier
-    inputs%epsilon = 1.d-4
+    inputs%epsilon = 1.d-13
+    inputs%epsilon_htiny = 1.d-10
     OPEN(UNIT = in_unit, FILE = data_fichier, FORM = 'formatted', STATUS = 'unknown')
     CALL read_until(in_unit, "===Name of directory for mesh file===")
     READ (in_unit,*) inputs%directory
@@ -81,7 +83,7 @@ CONTAINS
     READ (in_unit,*) inputs%uy_Dir_list
 
     SELECT CASE(inputs%type_test)
-    CASE(9,10)
+    CASE(9,10,14,15,16)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
     CASE DEFAULT
@@ -89,7 +91,7 @@ CONTAINS
     END SELECT
 
     SELECT CASE(inputs%type_test) ! for hyperbolic SGN model
-    CASE(13,14)
+    CASE(13,14,15,16)
        CALL read_until(in_unit, "===Lambda for SGN model===")
        READ (in_unit,*) inputs%lambdaSGN
     END SELECT

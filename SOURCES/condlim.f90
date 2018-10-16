@@ -4,6 +4,8 @@ MODULE boundary_conditions
   !12=Paraboloid + coriolis force (Eric T.)
   !13=modified SGN model, solitary wave in canal (Eric T. )
   !14=modified SGN model, solitary wave run up (Eric T. )
+  !15=modified SGN model, Periodic waves over submerged bar (Eric T. )
+  !16=modified SGN model, solitary wave seawall (Eric T. )
   USE input_data
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: bath
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: velocity
@@ -14,6 +16,11 @@ MODULE boundary_conditions
   REAL(KIND=8), DIMENSION(2,12)   :: malpasset_rr
   INTEGER,      DIMENSION(12)     :: malpasset_m
   CHARACTER(LEN=20), DIMENSION(12):: malpasset_file, malpasset_title
+  !==Seawall Gauges
+  REAL(KIND=8), DIMENSION(2,7)    :: seawall_rr
+  INTEGER,      DIMENSION(7)      :: seawall_m
+  CHARACTER(LEN=20), DIMENSION(7):: seawall_file, seawall_title
+  !
   INTEGER, DIMENSION(:), ALLOCATABLE :: new_to_old
   INTEGER, DIMENSION(1) :: vmax
   !===
@@ -35,13 +42,6 @@ CONTAINS
        DO n = 1, mesh%np
           velocity(1,n) = un(2,n)*one_over_h(n)
           velocity(2,n) = un(3,n)*one_over_h(n)
-          !===Limit velocity
-          !vel = SQRT(velocity(1,n)**2+velocity(2,n)**2)
-          !reg = MIN(umax/vel,1.d0)
-          !velocity(:,n) = reg*velocity(:,n)
-          !un(2,n) = velocity(1,n)*un(1,n) !This is AK's fix.
-          !un(3,n) = velocity(2,n)*un(1,n) !It makes Arnau's test long-time stable on fine grid.
-          !===Limit velocity
           vv(1,1,n) = velocity(1,n)*un(1,n) ! u h
           vv(1,2,n) = velocity(2,n)*un(1,n) ! v h
           vv(2,1,n) = velocity(1,n)*un(2,n) ! u uh
@@ -50,9 +50,20 @@ CONTAINS
           vv(3,2,n) = velocity(2,n)*un(3,n) ! v vh
 
        END DO
-    CASE(13,14) ! cases 13,14 for modifed SGN hyperbolic model
+    CASE(13,14,15,16) ! cases 13+ for modifed SGN hyperbolic model
        one_over_h = compute_one_over_h(un(1,:))
-       DO n = 1, mesh%np
+      DO n = 1, mesh%np
+       IF (k_dim==1) THEN
+         ! set up velocity vector here
+         velocity(1,n) = un(2,n)*one_over_h(n) ! u
+         velocity(2,n) = un(3,n)*one_over_h(n) ! eta
+         velocity(3,n) = un(4,n)*one_over_h(n) ! w
+         ! set flux terms here without pressure
+         vv(1,1,n) = velocity(1,n)*un(1,n)   ! u h
+         vv(2,1,n) = velocity(1,n)*un(2,n)   ! u uh
+         vv(4,1,n) = velocity(1,n)*un(3,n)   ! u eta*h
+         vv(5,1,n) = velocity(1,n)*un(4,n)   ! u wh
+       ELSE
           ! set up velocity vector here
           velocity(1,n) = un(2,n)*one_over_h(n) ! u
           velocity(2,n) = un(3,n)*one_over_h(n)*0.d0 ! v
@@ -69,7 +80,8 @@ CONTAINS
           vv(4,2,n) = velocity(2,n)*un(4,n)   ! v eta*h
           vv(5,1,n) = velocity(1,n)*un(5,n)   ! u wh
           vv(5,2,n) = velocity(2,n)*un(5,n)   ! v wh
-        END DO
+        END IF
+      END DO
     CASE DEFAULT
        WRITE(*,*) ' BUG in flux'
        STOP
@@ -99,13 +111,14 @@ CONTAINS
          x0, SS, slope, flat_height, c, L, k_wavenumber
     !===For malpasset
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
-    REAL(KIND=8), DIMENSION(mesh%np) :: bath_old
+    REAL(KIND=8), DIMENSION(mesh%np) :: bath_old, x
     INTEGER :: m
     !===
     ALLOCATE(bath(mesh%np))
     ALLOCATE(one_over_h(mesh%np))
     ALLOCATE(regul_h(mesh%np))
-    IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
+    IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
+              .OR. inputs%type_test==16) THEN
       ALLOCATE(velocity(k_dim + 2,mesh%np)) ! for modified SGN model, u v eta w
     ELSE
       ALLOCATE(velocity(k_dim,mesh%np)) !this is original
@@ -222,7 +235,7 @@ CONTAINS
         DO i = 1, mesh%np
           bath(i) = 0.d0
         END DO
-    CASE(13) ! modified hyperbolic SGN model (Eric T., 2/26/2018)
+    CASE(13) ! modified hyperbolic GN model solitary wave(Eric T., 2/26/2018)
          inputs%gravity = 9.81d0
          h1 = 10.d0 / 100.0d0
          h2 = 11.d0 / 100.0d0
@@ -230,35 +243,83 @@ CONTAINS
          DO i = 1, mesh%np
            bath(i) = 0.d0
          END DO
-    CASE(14) ! modified hyperbolic SGN solitary wave run up (Eric T., 5/21/2018)
+    CASE(14) ! modified hyperbolic GN solitary wave run up (Eric T., 5/21/2018)
+        ! initial constants go here
+        inputs%gravity = 9.81d0
+        h0 = 1.d0
+        inputs%Tfinal = SQRT(h0/inputs%gravity)*inputs%Tfinal ! tStar
+        a = 0.28d0 ! amplitude
+        slope = 1.d0 / 19.85d0
+        inputs%max_water_h = a + h0
+        DO i = 1, mesh%np
+          bath(i) = MAX((mesh%rr(1,i) ) * slope, -h0)
+        END DO
+    CASE(15) ! modified hyperbolic GN model sinousoidal waves over bar
+       inputs%gravity = 9.81d0
+       h0 = 0.03d0
+       inputs%max_water_h = h0
 
+       ! define bathymetry here
+       x = mesh%rr(1,:)
+       DO i = 1, mesh%np
+         IF (x(i) .LE. 6.d0) THEN
+           bath(i) = -0.4d0
+         ELSE IF (x(i) .GE. 6.d0 .AND. x(i) .LE. 12.d0) THEN
+           bath(i) = -0.4d0 + (x(i)-6.d0)*1.d0/20.d0
+         ELSE IF (x(i) .GE. 12.d0 .AND. x(i) .LE. 14.d0) THEN
+           bath(i) = -0.1d0
+         ELSE IF (x(i) .GE. 14.d0 .AND. x(i) .LE. 17.d0) THEN
+           bath(i) = -0.1d0 - (x(i)-14.d0)*1.d0/10.d0
+         ELSE
+           bath(i) = -0.4d0
+         END IF
+       END DO
+    CASE(16) ! modified hyperbolic GN solitary wave seawall
          ! initial constants go here
          inputs%gravity = 9.81d0
-         h0 = 1.d0
-         a = 0.3d0 ! amplitude
-         slope = 1.d0 / 19.85d0
-         z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a))) ! wavenumber
-         k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3))
-         L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
-         c = SQRT(inputs%gravity * (1.d0 + a) * h0)
-         x0 = - h0/slope - L/2. !+ 4.d0 * L ! location of the toe of the beach
-         max_water_h = a
+         h0 = 0.2d0 ! reference height
+         a = 0.35d0 ! amplitude
+         inputs%max_water_h = a + h0
 
+         ! shift x 3 metres to match the shift in origin introduced by Hsiao and Lin
+         x = mesh%rr(1,:) + 3.d0
          DO i = 1, mesh%np
-           bath(i) = MAX((mesh%rr(1,i) ) * slope, -h0)
-           !bath(i) = -h0
+           IF (x(i) .LT. 10.d0) THEN
+             bath(i) = 0.d0
+           ELSE IF (x(i) .GE. 13.6d0 .AND. x(i) .LE. 13.9d0) THEN
+             bath(i) = 3.6d0/20.d0 + (x(i)-13.6d0)*0.076d0/(13.9d0 - 13.6d0)
+           ELSE IF (x(i) .GE. 13.9d0 .AND. x(i) .LE. 13.948d0) THEN
+             bath(i) = 3.6d0/20.d0 + 0.076d0
+           ELSE IF (x(i) .GE. 13.948d0 .AND. x(i) .LE. 14.045d0) THEN
+             bath(i) = 3.6d0/20.d0 + 0.076d0 - (x(i)-13.948d0)*(0.076d0-0.022d0)/(14.045d0 - 13.948d0)
+           ELSE
+             bath(i) = (x(i) - 10.d0)/20.d0
+           END IF
          END DO
+         bath = bath - h0 ! shift bath down by reference height
+         !===Find Gauges
+         CALL seawall_gauges
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
        STOP
     END SELECT
 
-    inputs%htiny=inputs%epsilon*max_water_h
+
+    inputs%htiny=inputs%epsilon_htiny*inputs%max_water_h
+
     ! looks like this is where things actually get initialized
     DO k = 1, inputs%syst_size
        un(k,:) = sol_anal(k,mesh%rr,inputs%time)
     END DO
+
+    IF (inputs%type_test==13) THEN
+       max_water_h = MINVAL(un(1,:))
+    ELSE
+       max_water_h = MAXVAL(un(1,:))
+    END IF
+    inputs%max_water_h = max_water_h
+
     ray1=MAXVAL(mesh%rr(1,:))-MINVAL(mesh%rr(1,:))
     ray2=MAXVAL(mesh%rr(2,:))-MINVAL(mesh%rr(2,:))
     ray3=SQRT(SUM(mesh%gauss%rj))
@@ -332,20 +393,71 @@ CONTAINS
     malpasset_title(12)='%Gauge_S14'
   END SUBROUTINE malpasset_gauges
 
+  SUBROUTINE seawall_gauges
+    USE mesh_handling
+    USE mesh_interpolation
+    IMPLICIT NONE
+    INTEGER :: m, n
+    ! note that the experimental data is just 1D (x location, height)
+    ! so we pick the appropriate x values but just set y value to be
+    ! at midpoint in y direction. numerical domain is [0,22]x[0,0.5]
+
+    ! these are gauges away from "dry land"
+    ! these gauges measures change water_height + bath
+    seawall_rr(1,1) = 5.9    !x
+    seawall_rr(2,1) = 0.25   !y
+    seawall_rr(1,2) = 7.6
+    seawall_rr(2,2) = 0.25
+    seawall_rr(1,3) = 9.64
+    seawall_rr(2,3) = 0.25
+    seawall_rr(1,4) = 10.462
+    seawall_rr(2,4) = 0.25
+    ! these are locations on "dry land"
+    seawall_rr(1,5) = 10.732
+    seawall_rr(2,5) = 0.25
+    seawall_rr(1,6) = 11.005
+    seawall_rr(2,6) = 0.25
+    seawall_rr(1,7) = 11.12
+    seawall_rr(2,7) = 0.25
+
+
+    DO n = 1, 7
+       write(*,*) ' n', n
+       DO m = 1, mesh%me
+          IF (inside(mesh,m,seawall_rr(:,n))) EXIT
+       END DO
+       seawall_m(n)=m
+       !write(*,*) malpasset_m(n)
+       !write(*,*) mesh%rr(1,mesh%jj(:,malpasset_m(n))), malpasset_rr(1,n)
+       !write(*,*) mesh%rr(2,mesh%jj(:,malpasset_m(n))), malpasset_rr(2,n)
+       WRITE(*,*) bath(mesh%jj(:,seawall_m(n))), SUM(bath(mesh%jj(:,seawall_m(n))) &
+            * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n)))
+    END DO
+    ! output as txt file to make viewing with paraview easier
+    seawall_file(1)  ='WG1.txt'
+    seawall_file(2)  ='WG3.txt'
+    seawall_file(3)  ='WG10.txt'
+    seawall_file(4)  ='WG22.txt'
+    seawall_file(5)  ='WG28.txt'
+    seawall_file(6)  ='WG37.txt'
+    seawall_file(7)  ='WG40.txt'
+  END SUBROUTINE seawall_gauges
+
   FUNCTION sol_anal(k,rr,t) RESULT(vv) !CAREFUL HERE, rr comes from the calling subroutine
     USE mesh_handling
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: k
     REAL(KIND=8), DIMENSION(:,:),  INTENT(IN) :: rr
     REAL(KIND=8),                  INTENT(IN) :: t
-    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv
+    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, x_coord, bath
     INTEGER :: i
     REAL(KIND=8) :: x, x0, speed, q0, hL, b, d, x1, x2, x3, &
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
          xshock, h_pre_shock, h_post_shock, bath_shock, bathi, Ber_pre, Ber_post, &
          alpha, beta, chi, vel, xs, hcone, htop, radius, rcone, scone, bx, kappa, &
          s, htilde, p, f, delta, w_star, den, gamma, lambdaSGN, z, SS, slope, &
-         sechSqd, hPrime, c, L, h1, h2, D_wave, k_wavenumber
+         sechSqd, hPrime, hTildePrime, c, L, h1, h2, D_wave, k_wavenumber, Tperiod
+    REAL(KIND=8) :: pi=ACOS(-1.d0)
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
     !===
@@ -771,7 +883,7 @@ CONTAINS
             END DO
           ! END SELECT
       END SELECT
-    CASE(13) ! Added to include hyperbolic SGN model (Eric T., 02/2018)
+    CASE(13) ! mGN soliton (Eric T., 02/2018)
       ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
       ! initial constants go here
       inputs%gravity = 9.81d0
@@ -827,69 +939,209 @@ CONTAINS
            END DO
         END IF
       END SELECT
-    CASE(14) ! Added to include hyperbolic SGN model, solitary wave run up (Eric T., 05/21/2018)
-      ! here we are doing exact solitary wave solution from Favrie-Gavrilyuk paper
+    CASE(14) ! mGN run up (Eric T., 05/21/2018)
       ! initial constants go here
       inputs%gravity = 9.81d0
       h0 = 1.d0
-      a = 0.3d0 ! amplitude
+      a = 0.28d0 ! amplitude
       slope = 1.d0 / 19.85d0
       k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3)) ! wavenumber
       z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a)))
       L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
       c = SQRT(inputs%gravity * (1.d0 + a) * h0)
-      x0 = - h0/slope - L/2.d0  ! location of the toe of the beach
+      x0 = - h0/slope - L/2.d0 ! initial location of solitary wave
 
       SELECT CASE(k)
       CASE(1) ! h water height
           DO i = 1, SIZE(rr,2)
             bathi = MAX((rr(1,i)) * slope, -h0)
-            !bathi = -h0
             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
             htilde= a * h0 * sechSqd
             vv(i) = MAX(htilde - bathi,0.d0)
           END DO
 
-      CASE(2) ! u*h component of flow rate q
+      CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
         DO i = 1, SIZE(rr,2)
           bathi = MAX((rr(1,i) ) * slope, -h0)
-          !bathi = -h0
           sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-          htilde= a * h0 * sechSqd
+          htilde= a * h0 * sechSqd ! this is exact solitary wave
           vv(i) = MAX(htilde-bathi,0.d0)
           vv(i) =  vv(i) * c * htilde / (h0 + htilde)
         END DO
 
-      CASE(3) ! v*h component of flow rate q, just 0 for now
+      CASE(3) ! v*h component, just 0 for now
         DO i = 1, SIZE(rr,2)
           bathi = MAX((rr(1,i) ) * slope, -h0)
-          !bathi = -h0
           sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
           htilde= a * h0 * sechSqd
           vv(i) = MAX(htilde - bathi,0.d0)
           vv(i) = 0.d0
         END DO
-      CASE(4) ! eta*h component of flow rate r
-         IF (t.LE.1.d-10) THEN
+      CASE(4) ! eta*h component
+         IF (t.LE.1.d-14) THEN
            DO i = 1, SIZE(rr,2)
              bathi = MAX((rr(1,i)) * slope, -h0)
-             !bathi = -h0
              sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
              htilde= a * h0 * sechSqd
              vv(i) = MAX(htilde - bathi,0.d0)
              vv(i) = vv(i) * vv(i)
            END DO
          END IF
-      CASE(5) ! w*h component of flow rate
+      CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
         IF (t.LE.1.d-14) THEN
            DO i = 1, SIZE(rr,2)
              bathi = MAX((rr(1,i) ) * slope, -h0)
-             !bathi = -h0
+             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+             htilde= a * h0 * sechSqd ! this is exact solution
+             hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+             vv(i) = MAX(htilde - bathi,0.d0)
+             ! this is -waterHeight^2 * div(velocity)
+             vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+           END DO
+        END IF
+      END SELECT
+    CASE (15)
+      ! initial constants go here
+      inputs%gravity = 9.81d0
+      a = 0.025d0
+      Tperiod = 2.51d0
+
+      ! define bathymetry here because it's easier
+      x_coord = rr(1,:)
+      DO i = 1, SIZE(rr,2)
+        IF (x_coord(i) .LE. 6.d0) THEN
+          bath(i) = -0.4d0
+        ELSE IF (x_coord(i) .GE. 6.d0 .AND. x_coord(i) .LE. 12.d0) THEN
+          bath(i) = -0.4d0 + (x_coord(i)-6.d0)*1.d0/20.d0
+        ELSE IF (x_coord(i) .GE. 12.d0 .AND. x_coord(i) .LE. 14.d0) THEN
+          bath(i) = -0.1d0
+        ELSE IF (x_coord(i) .GE. 14.d0 .AND. x_coord(i) .LE. 17.d0) THEN
+          bath(i) = -0.1d0 - (x_coord(i)-14.d0)*1.d0/10.d0
+        ELSE
+          bath(i) = -0.4d0
+        END IF
+      END DO
+
+      SELECT CASE(k)
+      CASE(1) ! h water height, initialized with 0 then try to generate wave
+        IF (t.LE.1.d-14) THEN
+          DO i = 1, SIZE(rr,2)
+            htilde = 0.d0
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            END DO
+        ELSE
+          DO i = 1, SIZE(rr,2)
+            htilde = a * SIN(2 * pi /Tperiod * t)
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            END DO
+        END IF
+
+      CASE(2) ! u*h component, initialized with 0
+        IF (t.LE.1.d-14) THEN
+          DO i = 1, SIZE(rr,2)
+            htilde = 0.d0
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            vv(i) = vv(i) * 0.d0
+          END DO
+        END IF
+
+      CASE(3) ! v*h component, just 0 for now
+        DO i = 1, SIZE(rr,2)
+          vv(i) = 0.d0
+        END DO
+      CASE(4) ! eta*h component, initalized with heta = h^2
+        IF (t.LE.1.d-14) THEN
+          DO i = 1, SIZE(rr,2)
+            htilde = 0.d0
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            vv(i) = vv(i) * vv(i)
+          END DO
+        ELSE
+          DO i = 1, SIZE(rr,2)
+            htilde = a * SIN(2 * pi /Tperiod * t)
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            vv(i) = vv(i) * vv(i)
+          END DO
+        END IF
+      CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+        IF (t.LE.1.d-14) THEN
+           DO i = 1, SIZE(rr,2)
+             htilde= 0.d0
+             vv(i) = MAX(htilde - bath(i),0.d0)
+             vv(i) = vv(i) * 0.d0
+           END DO
+        END IF
+      END SELECT
+    CASE(16) ! mGN seawall
+      ! initial constants go here
+      inputs%gravity = 9.81d0
+      h0 = 0.2d0
+      a = 0.35d0 ! amplitude
+      slope = 1.d0 / 19.85d0
+      k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3)) ! wavenumber
+      z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a)))
+      L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
+      c = SQRT(inputs%gravity * (1.d0 + a) * h0)
+      x0 = 5.9d0 ! initial location of solitary wave
+
+      ! define bathymetry here because it's easier
+      x_coord = rr(1,:) + 3.d0
+      DO i = 1, SIZE(rr,2)
+        IF (x_coord(i) .LE. 10.d0) THEN
+          bath(i) = 0.d0
+        ELSE IF (x_coord(i) .GE. 13.6d0 .AND. x_coord(i) .LE. 13.9d0) THEN
+          bath(i) = 3.6d0/20.d0 + (x_coord(i)-13.6d0)*0.076d0/(13.9d0 - 13.6d0)
+        ELSE IF (x_coord(i) .GE. 13.9d0 .AND. x_coord(i) .LE. 13.948d0) THEN
+          bath(i) = 3.6d0/20.d0 + 0.076d0
+        ELSE IF (x_coord(i) .GE. 13.948d0 .AND. x_coord(i) .LE. 14.045d0) THEN
+          bath(i) = 3.6d0/20.d0 + 0.076d0 - (x_coord(i)-13.948d0)*(0.076d0-0.022d0)/(14.045d0 - 13.948d0)
+        ELSE
+          bath(i) = (x_coord(i) - 10.d0)/20.d0
+        END IF
+      END DO
+      bath = bath - h0 ! shift bath down by reference height
+
+      SELECT CASE(k)
+      CASE(1) ! h water height
+          DO i = 1, SIZE(rr,2)
+            sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+            htilde= a * h0 * sechSqd
+            vv(i) = MAX(htilde - bath(i),0.d0)
+          END DO
+
+      CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
+        DO i = 1, SIZE(rr,2)
+          sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+          htilde= a * h0 * sechSqd ! this is exact solitary wave
+          vv(i) = MAX(htilde-bath(i),0.d0)
+          vv(i) =  vv(i) * c * htilde / (h0 + htilde)
+        END DO
+
+      CASE(3) ! v*h component, just 0 for now
+        DO i = 1, SIZE(rr,2)
+          sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+          htilde= a * h0 * sechSqd
+          vv(i) = MAX(htilde - bath(i),0.d0)
+          vv(i) = 0.d0
+        END DO
+      CASE(4) ! eta*h component
+         IF (t.LE.1.d-14) THEN
+           DO i = 1, SIZE(rr,2)
              sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
              htilde= a * h0 * sechSqd
-             hprime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
-             vv(i) = MAX(htilde - bathi,0.d0)
-             vv(i) = vv(i) * (-c * h0 * htilde * hprime /(h0 + htilde)**2)
+             vv(i) = MAX(htilde - bath(i),0.d0)
+             vv(i) = vv(i) * vv(i)
+           END DO
+         END IF
+      CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+        IF (t.LE.1.d-14) THEN
+           DO i = 1, SIZE(rr,2)
+             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+             htilde= a * h0 * sechSqd ! this is exact solution
+             hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+             vv(i) = MAX(htilde - bath(i),0.d0)
+             ! this is -waterHeight^2 * div(velocity)
+             vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
            END DO
         END IF
       END SELECT
@@ -897,6 +1149,7 @@ CONTAINS
    CASE DEFAULT
       WRITE(*,*) ' BUG in sol_anal'
       STOP
+
    END SELECT
 
   END FUNCTION sol_anal
@@ -965,7 +1218,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14)
+    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
        !IF (hl.LE.inputs%htiny .AND. hr.LE.inputs%htiny) THEN
        !   lambda = 0.d0
        !   RETURN

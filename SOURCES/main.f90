@@ -9,7 +9,7 @@ PROGRAM shallow_water
   USE mesh_interpolation
   IMPLICIT NONE
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: rk, un, ui, uo
-  REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie, hetamovie
+  REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie, hetamovie, time_steps
   INTEGER                                   :: it, it_max, kit=0,counter
   REAL(KIND=8)                              :: tps, to, q1, q2, q3, dt_frame, t_frame=0.d0
   REAL(KIND=8)                              :: hmax0
@@ -21,7 +21,12 @@ PROGRAM shallow_water
   CALL construct_matrices
   inputs%syst_size=k_dim+1 !For shallow water
 
-  IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
+  IF (inputs%type_test==14) THEN
+    nb_frame=14
+  END IF
+
+  IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
+                  .OR. inputs%type_test==16) THEN
   inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
   END IF
 
@@ -30,8 +35,17 @@ PROGRAM shallow_water
   inputs%time =0.d0
   CALL init(un)
   hmax0 = MAXVAL(un(1,:))
-  CALL plot_scalar_field(mesh%jj, mesh%rr, bath, 'bath.plt')
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'hinit.plt')
+  IF (k_dim==1) THEN
+    CALL plot_1d(mesh%rr(1,:), bath, 'bath.plt')
+    CALL plot_1d(mesh%rr(1,:), un(1,:), 'hinit.plt')
+    CALL plot_1d(mesh%rr(1,:), un(1,:)+bath, 'hpluszinit.plt')
+    CALL plot_1d(mesh%rr(1,:), un(2,:), 'huinit.plt')
+    CALL plot_1d(mesh%rr(1,:), un(3,:), 'hetainit.plt')
+    CALL plot_1d(mesh%rr(1,:), un(4,:), 'hwinit.plt')
+  ELSE
+    CALL plot_scalar_field(mesh%jj, mesh%rr, bath, 'bath.plt')
+    CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'hinit.plt')
+  END IF
   ! IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
   ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(4,:), 'h_eta_init.plt')
   ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'h_u_init.plt')
@@ -41,10 +55,14 @@ PROGRAM shallow_water
 
   IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 &
   .OR. inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
-  .OR. inputs%type_test==14) THEN
+  .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
+        .OR. inputs%type_test==16) THEN
      dt_frame = inputs%Tfinal/(nb_frame-1)
      CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
-     CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
+  END IF
+  ! output exact solution at Tfinal for soliton with flat bath
+  IF (inputs%type_test==13) THEN
+    CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
   END IF
 
 
@@ -93,15 +111,13 @@ PROGRAM shallow_water
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
      inputs%time = to + inputs%dt
      write(*,*) 'time ', inputs%time, inputs%dt
-
-     !!!! outputing time steps !!!!
-
+     !!!! outputing time steps to file!!!!
      IF (inputs%lambdaSGN > 0.d0) THEN
        open (unit = 7, file = "time_steps_GN.txt")
        write (7,*) inputs%dt
      ELSE
-       open (unit = 8, file = "time_steps_SW.txt")
-       write (8,*) inputs%dt
+       open (unit = 7, file = "time_steps_SW.txt")
+       write (7,*) inputs%dt
      END IF
 
      SELECT CASE(inputs%type_test)
@@ -129,9 +145,29 @@ PROGRAM shallow_water
         END DO
      END IF
 
+     IF (inputs%type_test==16) THEN !seawall gauges
+        IF (inputs%time.LE.inputs%dt) THEN
+           DO n = 1, 7
+              OPEN(20+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
+              ! WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
+              ! WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
+              !WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+              !WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+           END DO
+        END IF
+        DO n = 1, 7
+           WRITE(20+n,*) inputs%time, &
+                SUM((un(1,mesh%jj(:,seawall_m(n)))) &
+                * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n))), &
+                SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
+                * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n)))
+        END DO
+     END IF
+
      IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 .OR. &
      inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
-     .OR. inputs%type_test==14) THEN
+     .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
+            .OR.  inputs%type_test==16) THEN
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -162,7 +198,7 @@ PROGRAM shallow_water
                     hmovie(i) = un(1,i)
                     hetamovie(i) = un(4,i)
                  END IF
-              !hetamovie(i) = un(4,i)
+              !hetamovie = un(4,:)
               END DO
               CALL vtk_2d(mesh, hmovie, 10, header)
               CALL vtk_2d(mesh,hetamovie,13,etaHeader)
@@ -175,7 +211,16 @@ PROGRAM shallow_water
 
   tps = user_time() - tps
   WRITE(*,*) 'total time', tps, 'Time per time step and dof', tps/(it_max*mesh%np), it_max
-  write (*,*) 'Total iterations', counter
+  WRITE(*,*) 'total time in minutes', tps/60.d0
+  WRITE(*,*) 'Total iterations', counter
+  ALLOCATE(time_steps(counter))
+  !OPEN(unit = 7, file = 'time_steps_SW.txt', status='old')
+  !READ(7,*) time_steps
+  !WRITE(*,*) time_steps(1)
+  !WRITE(*,*) 'Average Time Step', SUM(time_steps(:))/SIZE(time_steps(:))
+  WRITE(*,*) 'Number of elemets', mesh%me
+  WRITE(*,*) 'Number of nodes  ', mesh%np
+  !WRITE(*,*) 'Average Mesh Size', inputs%avgMeshSize
 
   CALL compute_errors
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:)+bath, 'HplusZ.plt')
@@ -206,10 +251,11 @@ CONTAINS
     IF (SIZE(h_js_D).NE.0)  uu(1,h_js_D)  = sol_anal(1,mesh%rr(:,h_js_D),t)
     IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
     IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
-    ! to add Boundary Conditions to eta and w
-    IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
+    ! to add Boundary Conditions to eta and w ! actually need to fix this
+    IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
+                      .OR. inputs%type_test==16) THEN
       IF (SIZE(ux_js_D).NE.0) uu(4,ux_js_D) = sol_anal(4,mesh%rr(:,ux_js_D),t)
-      IF (SIZE(ux_js_D).NE.0) uu(5,ux_js_D) = sol_anal(5,mesh%rr(:,ux_js_D),t)
+      IF (SIZE(uy_js_D).NE.0) uu(5,uy_js_D) = sol_anal(5,mesh%rr(:,uy_js_D),t)
     END IF
   END SUBROUTINE bdy
 
@@ -285,7 +331,6 @@ CONTAINS
     CASE DEFAULT
        RETURN
     END SELECT
-
   END SUBROUTINE compute_errors
 
   SUBROUTINE ns_anal_mass_L1 (mesh, ff, f_anal,  t)
@@ -346,4 +391,24 @@ CONTAINS
     END DO
 
   END SUBROUTINE r_gauss
+  SUBROUTINE plot_1d(rr,un,file)
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(:), INTENT(IN) :: rr, un
+    INTEGER :: n, unit=10
+    CHARACTER(*) :: file
+    OPEN(unit,FILE=TRIM(ADJUSTL(file)),FORM='formatted')
+    WRITE(unit,*) '%toplabel='' '''
+    WRITE(unit,*) '%xlabel='' '''
+    WRITE(unit,*) '%ylabel='' '''
+    WRITE(unit,*) '%ymax=', MAXVAL(un)
+    WRITE(unit,*) '%ymin=', MINVAL(un)
+    WRITE(unit,*) '%xyratio=1'
+    WRITE(unit,*) '%mt=4'
+    WRITE(unit,*) '%mc=2'
+    WRITE(unit,*) '%lc=2'
+    DO n = 1, SIZE(rr)
+       WRITE(unit,*) rr(n), un(n)
+    END DO
+    CLOSE(unit)
+  END SUBROUTINE plot_1d
 END PROGRAM shallow_water

@@ -3,7 +3,7 @@
 #  Discussion:
 #
 #    This file describes a rectangle on [0,L]x[0,1],
-#    where L = 50.
+#    where L = 42.
 #
 #    The boundary markers are:
 #    1: point on the outer boundary on the left side of rectangle
@@ -18,10 +18,10 @@
 #
 #  List the vertices by index, x, y, and boundary marker.
 #
-1 -30.00000 0.00000
-2 10.00000 0.00000
-3 10.0000 5.00000
-4 -30.00000 5.00000
+1 -35.00000 0.00000
+2 12.00000 0.00000
+3 12.0000 5.00000
+4 -35.00000 5.00000
 
 #  Declare the number of segments and the number of boundary markers.
 #
