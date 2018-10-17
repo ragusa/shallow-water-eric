@@ -128,7 +128,6 @@ CONTAINS
     CALL st_csr(mesh%jj, resij%ia, resij%ja)
     ALLOCATE(resij%aa(SIZE(resij%ja)))
     resij%aa = 0.d0
-
   END SUBROUTINE construct_matrices
 
   SUBROUTINE euler(un,unext)
@@ -422,7 +421,7 @@ CONTAINS
        CALL my_friction(un,rk)
      CASE(12) ! (Eric T.)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13,14,15,16) ! (Eric T.)
+     CASE(13,14,15,16,17,18,19) ! (Eric T.)
        CALL mSGN_RHS(un,rk) ! (Eric T. )
     END SELECT
   END SUBROUTINE smb_1
@@ -558,7 +557,6 @@ CONTAINS
        END DO
 
     END DO
-
   END SUBROUTINE mSGN_RHS
 
 
@@ -639,6 +637,8 @@ CONTAINS
      CASE(16)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
+     CASE(17,18,19)
+       CALL mSGN_RHS(un,rk)
     END SELECT
   END SUBROUTINE smb_2_roundoff
 
@@ -705,6 +705,8 @@ CONTAINS
      CASE(16)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
+     CASE(17,18,19)
+       CALL mSGN_RHS(un,rk)
     END SELECT
   END SUBROUTINE smb_2
 
@@ -839,7 +841,7 @@ SUBROUTINE check_hmin(h)
  IMPLICIT NONE
  REAL(KIND=8), DIMENSION(:,:) :: h
  SELECT CASE(inputs%type_test)
- CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
+ CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
  IF (MINVAL(h(1,:))<0.d0) THEN
     WRITE(*,*) 'Min h<0, STOP', MINVAL(h)
     WRITE(*,*) 'MAXVAL(vel)', MAXVAL(ABS(velocity(1,:))), MAXVAL(ABS(velocity(2,:)))

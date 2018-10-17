@@ -26,7 +26,8 @@ PROGRAM shallow_water
   END IF
 
   IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-                  .OR. inputs%type_test==16) THEN
+                  .OR. inputs%type_test==16 .OR. inputs%type_test==17 &
+                    .OR. inputs%type_test==18 .OR. inputs%type_test==19) THEN
   inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
   END IF
 
@@ -56,7 +57,8 @@ PROGRAM shallow_water
   IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 &
   .OR. inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
   .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-        .OR. inputs%type_test==16) THEN
+        .OR. inputs%type_test==16 .OR. inputs%type_test==17 &
+        .OR. inputs%type_test==18 .OR. inputs%type_test==19) THEN
      dt_frame = inputs%Tfinal/(nb_frame-1)
      CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
   END IF
@@ -157,7 +159,7 @@ PROGRAM shallow_water
         END IF
         DO n = 1, 7
            WRITE(20+n,*) inputs%time, &
-                SUM((un(1,mesh%jj(:,seawall_m(n)))) &
+                SUM(un(1,mesh%jj(:,seawall_m(n))) &
                 * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n))), &
                 SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
                 * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n)))
@@ -167,7 +169,8 @@ PROGRAM shallow_water
      IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 .OR. &
      inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
      .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-            .OR.  inputs%type_test==16) THEN
+            .OR.  inputs%type_test==16 .OR. inputs%type_test==17 &
+            .OR. inputs%type_test==18 .OR. inputs%type_test==19) THEN
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -253,7 +256,8 @@ CONTAINS
     IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
     ! to add Boundary Conditions to eta and w ! actually need to fix this
     IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-                      .OR. inputs%type_test==16) THEN
+                      .OR. inputs%type_test==16 .OR. inputs%type_test==17 &
+        .OR. inputs%type_test==18  .OR. inputs%type_test==19) THEN
       IF (SIZE(ux_js_D).NE.0) uu(4,ux_js_D) = sol_anal(4,mesh%rr(:,ux_js_D),t)
       IF (SIZE(uy_js_D).NE.0) uu(5,uy_js_D) = sol_anal(5,mesh%rr(:,uy_js_D),t)
     END IF

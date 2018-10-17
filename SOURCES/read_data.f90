@@ -91,7 +91,7 @@ CONTAINS
     END SELECT
 
     SELECT CASE(inputs%type_test) ! for hyperbolic SGN model
-    CASE(13,14,15,16)
+    CASE(13,14,15,16,17,18,19)
        CALL read_until(in_unit, "===Lambda for SGN model===")
        READ (in_unit,*) inputs%lambdaSGN
     END SELECT
