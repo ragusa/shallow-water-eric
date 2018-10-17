@@ -1,0 +1,28 @@
+soliton problem information
+D = [0,10] x [0,1]
+here we list the L1 and L2 error between approximate solution and exact solution at T = 4
+with 5 different refinements
+
+
+L1, starting at refinement 2
+6.1043770776373690E-003
+3.5868502002305860E-003
+1.8401307077981883E-003
+7.9028601745848243E-004
+2.5981967858116262E-004
+
+
+
+L2, starting at refinement 2
+1.3772696144809636E-002
+8.9672519012165917E-003
+4.5631806267371613E-003
+1.9098095483636693E-003         
+6.4370315190544615E-004
+
+Number of nodes:
+93
+317
+1154
+4368
+20305

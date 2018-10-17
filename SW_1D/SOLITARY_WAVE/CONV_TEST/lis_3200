@@ -1,0 +1,9 @@
+  limit_h/max_water_h   3.1012469481393306E-004   6.2024938962786612E-004   10.000000000000000     
+  Mass1   10076.591939493648     
+ total time   266.81199999991804      Time per time step and dof   4.9605845551694180E-006       16803
+  Relative L1 error on h (Gaussian)   6.4266097040864877E-003
+  Relative L2 error on h (Gaussian)   4.9961919754470726E-003
+  Relative Linfty error on h          5.3064445550425384E-003   10.000000000000000     
+  Relative L1 error on Q (Gaussian)   8.4490265247431362E-003
+  Relative L2 error on Q (Gaussian)   5.1149827607770652E-003
+  Relative Linfty error on Q          5.2193420302595215E-003
