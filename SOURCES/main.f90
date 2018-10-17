@@ -24,12 +24,11 @@ PROGRAM shallow_water
   IF (inputs%type_test==14) THEN
     nb_frame=14
   END IF
+  SELECT CASE(inputs%type_test)
+  CASE(13,14,15,16,17,18,19,20)
+    inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
+  END SELECT
 
-  IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-                  .OR. inputs%type_test==16 .OR. inputs%type_test==17 &
-                    .OR. inputs%type_test==18 .OR. inputs%type_test==19) THEN
-  inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
-  END IF
 
   ALLOCATE(rk(inputs%syst_size,mesh%np),un(inputs%syst_size,mesh%np),&
        ui(inputs%syst_size,mesh%np),uo(inputs%syst_size,mesh%np),hmovie(mesh%np),hetamovie(mesh%np))
@@ -54,14 +53,11 @@ PROGRAM shallow_water
 
   CALL COMPUTE_DT(un)
 
-  IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 &
-  .OR. inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
-  .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-        .OR. inputs%type_test==16 .OR. inputs%type_test==17 &
-        .OR. inputs%type_test==18 .OR. inputs%type_test==19) THEN
-     dt_frame = inputs%Tfinal/(nb_frame-1)
-     CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
-  END IF
+  SELECT CASE(inputs%type_test)
+  CASE(5,8,9,11,12,13,14,15,16,17,18,19,20)
+    dt_frame = inputs%Tfinal/(nb_frame-1)
+    CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
+  END SELECT
   ! output exact solution at Tfinal for soliton with flat bath
   IF (inputs%type_test==13) THEN
     CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
@@ -166,11 +162,8 @@ PROGRAM shallow_water
         END DO
      END IF
 
-     IF (inputs%type_test==8 .OR. inputs%type_test==5 .OR. inputs%type_test==9 .OR. &
-     inputs%type_test==11 .OR. inputs%type_test==12 .OR. inputs%type_test==13 &
-     .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-            .OR.  inputs%type_test==16 .OR. inputs%type_test==17 &
-            .OR. inputs%type_test==18 .OR. inputs%type_test==19) THEN
+     SELECT CASE(inputs%type_test)
+     CASE(5,8,9,11,12,13,14,15,16,17,18,19,20)
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -208,7 +201,7 @@ PROGRAM shallow_water
               !CALL plot_scalar_field(mesh%jj, mesh%rr, hmovie, 'h_'//trim(adjustl(frame))//'.plt')
            END IF
         END IF
-     END IF
+     END SELECT
 
   END DO
 
@@ -254,13 +247,12 @@ CONTAINS
     IF (SIZE(h_js_D).NE.0)  uu(1,h_js_D)  = sol_anal(1,mesh%rr(:,h_js_D),t)
     IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
     IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
-    ! to add Boundary Conditions to eta and w ! actually need to fix this
-    IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-                      .OR. inputs%type_test==16 .OR. inputs%type_test==17 &
-        .OR. inputs%type_test==18  .OR. inputs%type_test==19) THEN
-      IF (SIZE(ux_js_D).NE.0) uu(4,ux_js_D) = sol_anal(4,mesh%rr(:,ux_js_D),t)
-      IF (SIZE(uy_js_D).NE.0) uu(5,uy_js_D) = sol_anal(5,mesh%rr(:,uy_js_D),t)
-    END IF
+    ! we add boundary conditions to heta and hw
+    SELECT CASE(inputs%type_test)
+    CASE(5,8,9,11,12,13,14,15,16,17,18,19,20)
+      IF (SIZE(heta_js_D).NE.0) uu(4,heta_js_D) = sol_anal(4,mesh%rr(:,heta_js_D),t)
+      IF (SIZE(hw_js_D).NE.0) uu(5,hw_js_D) = sol_anal(5,mesh%rr(:,hw_js_D),t)
+    END SELECT
   END SUBROUTINE bdy
 
   FUNCTION user_time() RESULT(time)

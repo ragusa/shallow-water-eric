@@ -16,8 +16,10 @@ MODULE input_data
      LOGICAL                        :: if_fct_limit
      INTEGER                        :: type_test
      REAL(KIND=8)                   :: dt, time
-     INTEGER                        :: h_nb_Dir_bdy, ux_nb_Dir_bdy, uy_nb_Dir_bdy
-     INTEGER, DIMENSION(:), POINTER :: h_Dir_list, ux_Dir_list, uy_Dir_list
+     INTEGER                        :: h_nb_Dir_bdy, ux_nb_Dir_bdy, uy_nb_Dir_bdy, &
+                                       heta_nb_Dir_bdy, hw_nb_Dir_bdy
+     INTEGER, DIMENSION(:), POINTER :: h_Dir_list, ux_Dir_list, uy_Dir_list, &
+                                       heta_Dir_list, hw_Dir_list
      REAL(KIND=8)                   :: gravity
      REAL(KIND=8)                   :: mannings
      REAL(KIND=8)                   :: eta
@@ -81,6 +83,16 @@ CONTAINS
     CALL read_until(in_unit, "===List of Dirichlet boundaries for uy?===")
     ALLOCATE(inputs%uy_Dir_list(inputs%uy_nb_Dir_bdy))
     READ (in_unit,*) inputs%uy_Dir_list
+    CALL read_until(in_unit, "===How many Dirichlet boundaries for heta?===")
+    READ (in_unit,*)  inputs%heta_nb_Dir_bdy
+    CALL read_until(in_unit, "===List of Dirichlet boundaries for heta?===")
+    ALLOCATE(inputs%heta_Dir_list(inputs%heta_nb_Dir_bdy))
+    READ (in_unit,*) inputs%heta_Dir_list
+    CALL read_until(in_unit, "===How many Dirichlet boundaries for hw?===")
+    READ (in_unit,*)  inputs%hw_nb_Dir_bdy
+    CALL read_until(in_unit, "===List of Dirichlet boundaries for hw?===")
+    ALLOCATE(inputs%hw_Dir_list(inputs%hw_nb_Dir_bdy))
+    READ (in_unit,*) inputs%hw_Dir_list
 
     SELECT CASE(inputs%type_test)
     CASE(9,10,14,15,16)
@@ -91,7 +103,7 @@ CONTAINS
     END SELECT
 
     SELECT CASE(inputs%type_test) ! for hyperbolic SGN model
-    CASE(13,14,15,16,17,18,19)
+    CASE(13,14,15,16,17,18,19,20)
        CALL read_until(in_unit, "===Lambda for SGN model===")
        READ (in_unit,*) inputs%lambdaSGN
     END SELECT

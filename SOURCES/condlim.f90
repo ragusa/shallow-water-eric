@@ -9,6 +9,7 @@ MODULE boundary_conditions
   !17=modified SGN model, breaking of gausian bump (Eric T.)
   !18=modified SGN model, collision of 2 solitary waves (Eric T. )
   !19=modified SGN model, undular bore (ie dam break) (Eric T.)
+  !20=modified SGN model, steady state gaussian (Eric T.)
   USE input_data
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: bath
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: velocity
@@ -111,10 +112,10 @@ CONTAINS
     INTEGER :: i, k
     REAL(KIND=8) :: ray1, ray2, ray3, scale, h0, a, hL, eta, omega, &
          hcone, rcone, scone, htop, radius, bx, q0, p, kappa, s, h1, h2, z, D_wave, &
-         x0, SS, slope, flat_height, c, L, k_wavenumber
+         x0, SS, slope, flat_height, c, L, k_wavenumber, q
     !===For malpasset
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
-    REAL(KIND=8), DIMENSION(mesh%np) :: bath_old, x
+    REAL(KIND=8), DIMENSION(mesh%np) :: bath_old, x, gauss_height, term1,term2,term3
     INTEGER :: m
     !===
     ALLOCATE(bath(mesh%np))
@@ -332,6 +333,22 @@ CONTAINS
       DO i = 1, mesh%np
         bath(i) = 0.d0
       END DO
+    CASE(20) !modified hyperbolic GN steady state
+      ! initial constants go here
+      inputs%gravity = 9.81d0
+      a = 0.5d0
+      L = 1.d0
+      h0 = 0.5d0
+      c = -1.d0
+      q = 1.d0
+      inputs%max_water_h = a
+      x = mesh%rr(1,:)
+      gauss_height = h0 + a * EXP(-(x/L)**2)
+      term1 = - 3.d0 * EXP(2.d0 * (x/L)**2)*L**4
+      term2 = 4.d0 * a**2 * (L - x) * (L + x)
+      term3 = 4.d0 * a * h0 * EXP((x/L)**2) * (L**2 -2.d0 * x**2)
+      bath = c - gauss_height + q**2 / (6.d0 * inputs%gravity * L**4) * &
+            1.d0/(a + h0 * EXP((x/L)**2))**2 * (term1 + term2 + term3)
 
 
 
@@ -484,7 +501,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: k
     REAL(KIND=8), DIMENSION(:,:),  INTENT(IN) :: rr
     REAL(KIND=8),                  INTENT(IN) :: t
-    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, x_coord, bath
+    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, x_coord, bath, gauss_height, term1, term2, term3
     INTEGER :: i
     REAL(KIND=8) :: x, x0, speed, q0, hL, b, d, x1, x2, x3, &
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
@@ -492,7 +509,7 @@ CONTAINS
          alpha, beta, chi, vel, xs, hcone, htop, radius, rcone, scone, bx, kappa, &
          s, htilde, p, f, delta, w_star, den, gamma, lambdaSGN, z, SS, slope, &
          sechSqd, hPrime, hTildePrime, c, L, h1, h2, D_wave, k_wavenumber, Tperiod, &
-         lambda_width, soliton2, hTildePrime2, vel2, cOpp, pos1, pos2
+         lambda_width, soliton2, hTildePrime2, vel2, cOpp, pos1, pos2, q
     REAL(KIND=8) :: pi=ACOS(-1.d0)
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
@@ -1365,6 +1382,47 @@ CONTAINS
           END DO
         END IF
       END SELECT
+    CASE(20) ! mGN steady state
+      ! initial constants go here
+      a = 0.5d0
+      L = 1.d0
+      h0 = 0.5d0
+      c = -1.d0
+      q = 1.d0
+      inputs%max_water_h = a
+      x_coord = rr(1,:)
+      gauss_height = h0 + a * EXP(-( x_coord/L)**2)
+      term1 = - 3.d0 * EXP(2.d0 * (x_coord/L)**2)*L**4
+      term2 = 4.d0 * a**2 * (L - x_coord) * (L + x_coord)
+      term3 = 4.d0 * a * h0 * EXP((x/L)**2) * (L**2 -2.d0 * x_coord**2)
+      bath = c - gauss_height + q**2 / (6.d0 * inputs%gravity * L**4) * &
+            1.d0/(a + h0 * EXP(( x_coord/L)**2))**2 * (term1 + term2 + term3)
+
+      SELECT CASE(k)
+      CASE(1) ! h water height
+          DO i = 1, SIZE(rr,2)
+            vv(i) = h0
+          END DO
+
+      CASE(2) ! u*h component, hu = q = 1
+          DO i = 1, SIZE(rr,2)
+            vv(i) = q
+          END DO
+
+      CASE(3) ! v*h component, just 0 for now
+          DO i = 1, SIZE(rr,2)
+            vv(i) = 0.d0
+          END DO
+
+      CASE(4) ! eta*h component
+        DO i = 1, SIZE(rr,2)
+          vv(i) = h0**2
+        END DO
+      CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+        DO i = 1, SIZE(rr,2)
+          vv(i) = 0.d0
+        END DO
+      END SELECT
 
    CASE DEFAULT
       WRITE(*,*) ' BUG in sol_anal'
@@ -1438,7 +1496,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
+    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
        !IF (hl.LE.inputs%htiny .AND. hr.LE.inputs%htiny) THEN
        !   lambda = 0.d0
        !   RETURN

@@ -3,7 +3,7 @@ MODULE mesh_handling
   USE dir_nodes
   USE space_dim
   TYPE(mesh_type), PUBLIC                  :: mesh
-  INTEGER, POINTER, DIMENSION(:), PUBLIC   :: h_js_D, ux_js_D, uy_js_D
+  INTEGER, POINTER, DIMENSION(:), PUBLIC   :: h_js_D, ux_js_D, uy_js_D, heta_js_D, hw_js_D
  CONTAINS
    SUBROUTINE construct_mesh
      USE input_data
@@ -32,7 +32,13 @@ MODULE mesh_handling
      dir = .FALSE.
      dir(inputs%uy_Dir_list) = .TRUE.
      CALL dirichlet_nodes(mesh%jjs, mesh%sides, Dir, uy_js_D)
-
+     dir = .FALSE.
+     dir(inputs%heta_Dir_list) = .TRUE.
+     CALL dirichlet_nodes(mesh%jjs, mesh%sides, Dir, heta_js_D)
+     dir = .FALSE.
+     dir(inputs%hw_Dir_list) = .TRUE.
+     CALL dirichlet_nodes(mesh%jjs, mesh%sides, Dir, hw_js_D)
+     
    END SUBROUTINE construct_mesh
 
    SUBROUTINE load_mesh_1d
