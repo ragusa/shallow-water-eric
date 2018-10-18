@@ -336,10 +336,10 @@ CONTAINS
     CASE(20) !modified hyperbolic GN steady state
       ! initial constants go here
       inputs%gravity = 9.81d0
-      a = 0.5d0
+      a = 0.3d0
       L = 1.d0
       h0 = 0.5d0
-      c = -1.d0
+      c = -0.5d0
       q = 1.d0
       inputs%max_water_h = a
       x = mesh%rr(1,:)
@@ -1384,10 +1384,10 @@ CONTAINS
       END SELECT
     CASE(20) ! mGN steady state
       ! initial constants go here
-      a = 0.5d0
+      a = 0.3d0
       L = 1.d0
       h0 = 0.5d0
-      c = -1.d0
+      c = -0.5d0
       q = 1.d0
       inputs%max_water_h = a
       x_coord = rr(1,:)
@@ -1401,12 +1401,12 @@ CONTAINS
       SELECT CASE(k)
       CASE(1) ! h water height
           DO i = 1, SIZE(rr,2)
-            vv(i) = h0
+            vv(i) = MAX(h0-bath(i),0.d0)
           END DO
 
       CASE(2) ! u*h component, hu = q = 1
           DO i = 1, SIZE(rr,2)
-            vv(i) = q
+            vv(i) = q 
           END DO
 
       CASE(3) ! v*h component, just 0 for now
@@ -1416,7 +1416,7 @@ CONTAINS
 
       CASE(4) ! eta*h component
         DO i = 1, SIZE(rr,2)
-          vv(i) = h0**2
+          vv(i) = MAX(h0-bath(i),0.d0)**2
         END DO
       CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
         DO i = 1, SIZE(rr,2)
