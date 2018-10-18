@@ -1390,17 +1390,18 @@ CONTAINS
       c = -0.5d0
       q = 1.d0
       x_coord = rr(1,:)
-      gauss_height = h0 + a * EXP(-( x_coord/L)**2)
+      gauss_height = h0 + a * EXP(-(x_coord/L)**2)
       term1 = - 3.d0 * EXP(2.d0 * (x_coord/L)**2)*L**4
       term2 = 4.d0 * a**2 * (L - x_coord) * (L + x_coord)
       term3 = 4.d0 * a * h0 * EXP((x_coord/L)**2) * (L**2 -2.d0 * x_coord**2)
       bath = c - gauss_height + q**2 / (6.d0 * inputs%gravity * L**4) * &
-            1.d0/(a + h0 * EXP(( x_coord/L)**2))**2 * (term1 + term2 + term3)
-
+            1.d0/(a + h0 * EXP((x_coord/L)**2))**2 * (term1 + term2 + term3)
+            
       SELECT CASE(k)
       CASE(1) ! h water height
           DO i = 1, SIZE(rr,2)
-            vv(i) = MAX(h0-bath(i),0.d0)
+            !vv(i) = MAX(h0-bath(i),0.d0)
+            vv(i) = h0
           END DO
 
       CASE(2) ! u*h component, hu = q = 1
@@ -1415,7 +1416,8 @@ CONTAINS
 
       CASE(4) ! eta*h component
         DO i = 1, SIZE(rr,2)
-          vv(i) = MAX(h0-bath(i),0.d0)**2
+          !vv(i) = MAX(h0-bath(i),0.d0)**2
+          vv(i) = h0**2
         END DO
       CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
         DO i = 1, SIZE(rr,2)
