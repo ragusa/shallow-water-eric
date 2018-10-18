@@ -336,7 +336,7 @@ CONTAINS
     CASE(20) !modified hyperbolic GN steady state
       ! initial constants go here
       inputs%gravity = 9.81d0
-      a = 0.3d0
+      a = 0.35d0
       L = 1.d0
       h0 = 0.5d0
       c = -0.5d0
@@ -1384,17 +1384,16 @@ CONTAINS
       END SELECT
     CASE(20) ! mGN steady state
       ! initial constants go here
-      a = 0.3d0
+      a = 0.35d0
       L = 1.d0
       h0 = 0.5d0
       c = -0.5d0
       q = 1.d0
-      inputs%max_water_h = a
       x_coord = rr(1,:)
       gauss_height = h0 + a * EXP(-( x_coord/L)**2)
       term1 = - 3.d0 * EXP(2.d0 * (x_coord/L)**2)*L**4
       term2 = 4.d0 * a**2 * (L - x_coord) * (L + x_coord)
-      term3 = 4.d0 * a * h0 * EXP((x/L)**2) * (L**2 -2.d0 * x_coord**2)
+      term3 = 4.d0 * a * h0 * EXP((x_coord/L)**2) * (L**2 -2.d0 * x_coord**2)
       bath = c - gauss_height + q**2 / (6.d0 * inputs%gravity * L**4) * &
             1.d0/(a + h0 * EXP(( x_coord/L)**2))**2 * (term1 + term2 + term3)
 
@@ -1406,7 +1405,7 @@ CONTAINS
 
       CASE(2) ! u*h component, hu = q = 1
           DO i = 1, SIZE(rr,2)
-            vv(i) = q 
+            vv(i) = q
           END DO
 
       CASE(3) ! v*h component, just 0 for now
