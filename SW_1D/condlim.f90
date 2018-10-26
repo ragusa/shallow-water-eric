@@ -7,6 +7,8 @@ MODULE boundary_conditions
   !11=1D accuracy test + Manning
   !12=1D paraboloid + linear friction
   !13=1D Solitary wave
+  !14=1D Solitary wave Run UP
+  !15=1D mGN steady state
   USE input_data
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE   :: bath
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: velocity
@@ -74,11 +76,11 @@ CONTAINS
     USE fem_tn
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(:,:), INTENT(OUT) :: un
-    REAL(KIND=8), DIMENSION(mesh%np) :: aux, rr
+    REAL(KIND=8), DIMENSION(mesh%np) :: aux, rr, x, gauss_height, term1, term2
     INTEGER :: i, k
     REAL(KIND=8) :: ray1, ray2, ray3, scale, x0, h0, a, hL, eta, omega, &
          hcone, rcone, scone, htop, radius, bx, q0, surface, h_l1, &
-         h1, h2, slope, SS, z
+         h1, h2, slope, SS, z, q, L, cGN, cBer
     !===For malpasset
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
     REAL(KIND=8), DIMENSION(mesh%np) :: bath_old
@@ -105,6 +107,29 @@ CONTAINS
        DO i = 1, mesh%np
           bath(i) = MAX((mesh%rr(1,i) ) * slope, -h0)
        END DO
+
+    CASE(15) !modified hyperbolic GN steady state
+       ! initial constants go here
+       inputs%gravity = 9.81d0
+       a = .5d0
+       L = 1.d0
+       h0 = 2.d0
+       hL = h0
+       q = 2.7d0
+       ! L = 1.d0
+       ! a = 1.d0
+       ! q = 3.d0
+       ! h0 = 1.d0
+       hL = h0
+       cBer = q**2 / (2.d0 * inputs%gravity * h0**2) + h0
+       x  = mesh%rr(1,:)
+       gauss_height = h0 + a * EXP(-(x/L)**2)
+       term1 = a * (L-x)*(L+x)
+       term2 = EXP((x/L)**2) * h0 * (L**2 - 2.d0 * x**2)
+       bath = cBer - gauss_height - q**2 / (2.d0 * inputs%gravity * gauss_height**2) &
+             + 2.d0 * a * q**2 / (3.d0 * inputs%gravity * L**4) *  &
+             1.d0 / (a + h0*EXP((x/L)**2))**2 * (term1 + term2)
+       inputs%max_water_h = h0 + a
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -152,13 +177,14 @@ CONTAINS
     INTEGER, INTENT(IN) :: k
     REAL(KIND=8), DIMENSION(:,:),  INTENT(IN) :: rr
     REAL(KIND=8),                  INTENT(IN) :: t
-    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, aux
+    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, aux, x_coord, bath, gauss_height, term1,term2
     INTEGER :: i
     REAL(KIND=8) :: x, x0, speed, q0, hL, b, d, x1, x2, x3, &
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
          xshock, h_pre_shock, h_post_shock, bath_shock, bathi, Ber_pre, Ber_post, &
          alpha, beta, chi, vel, xs, hcone, htop, radius, rcone, scone, bx, dd, h1, h2, &
-         D_wave, htilde, slope, SS, z, c, sechSqd, hTildePrime, k_wavenumber, L
+         D_wave, htilde, slope, SS, z, c, sechSqd, hTildePrime, k_wavenumber, L, &
+         cSW, cGN, q, cBer
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
     !===
@@ -188,7 +214,7 @@ CONTAINS
           vv = (dd*(1-h1/vv)-dd)*aux*vv !(u0-d)dh0/dx * h0
        END SELECT
 
-    CASE(14)
+    CASE(14) !===Run up
        inputs%gravity = 9.81d0
        h0 = 1.d0
        a = 0.3d0 ! amplitude
@@ -217,14 +243,6 @@ CONTAINS
              vv(i) =  vv(i) * c * htilde / (h0 + htilde)
           END DO
 
-!!$       CASE(3) ! v*h component, just 0 for now
-!!$          DO i = 1, SIZE(rr,2)
-!!$             bathi = MAX((rr(1,i) ) * slope, -h0)
-!!$             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-!!$             htilde= a * h0 * sechSqd
-!!$             vv(i) = MAX(htilde - bathi,0.d0)
-!!$             vv(i) = 0.d0
-!!$          END DO
        CASE(3) ! eta*h component
           IF (t.LE.1.d-14) THEN
              DO i = 1, SIZE(rr,2)
@@ -248,6 +266,136 @@ CONTAINS
              END DO
           END IF
        END SELECT
+
+    CASE(15) ! mGN steady state
+       ! initial constants go here
+       a = .5d0
+       L = 1.d0
+       h0 = 2.d0
+       hL = h0
+       q = 2.7d0
+       ! L = 1.d0
+       ! a = 1.d0
+       ! q = 3.d0
+       ! h0 = 1.d0
+
+       cBer = q**2 / (2.d0 * inputs%gravity * h0**2) + h0
+       x_coord = rr(1,:)
+       gauss_height = h0 + a * EXP(-(x_coord/L)**2)
+       term1 = a * (L-x_coord)*(L+x_coord)
+       term2 = EXP((x_coord/L)**2) * h0 * (L**2 - 2.d0 * x_coord**2)
+       bath = cBer - gauss_height - q**2 / (2.d0 * inputs%gravity * gauss_height**2) &
+             + 2.d0 * a * q**2 / (3.d0 * inputs%gravity * L**4) *  &
+             1.d0 / (a + h0*EXP((x_coord/L)**2))**2 * (term1 + term2)
+       ! for shallow water cardano's formula
+       x0 = 0.d0
+       tpio3=2*ACOS(-1.d0)/3
+       fpio3=2*tpio3
+       d = q**2 / (2.d0 * inputs%gravity)
+
+
+       SELECT CASE(k)
+       CASE(1) ! h water height
+         ! IF (t.LE.1.d-14) THEN
+         !   DO i = 1, SIZE(rr,2)
+         !     vv(i) = hL - bath(i)
+         !   END DO
+         ! ELSE
+           DO i = 1, SIZE(rr,2)
+             vv(i) = gauss_height(i)
+             IF (inputs%lambda_bar < 1.d-10) THEN
+               b = bath(i) - cBer
+               d = q**2/(2*inputs%gravity)
+               Rcard = (-27*d-2*b**3)/(54)
+               Qcard = -b**2/9
+               Dcard = Qcard**3+Rcard**2
+               IF (Dcard.GE.0.d0) THEN
+                  !write(*,*) Rcard**2,Qcard**3,Qcard**3+Rcard**2
+                  !write(*,*) Rcard + sqrt(Dcard)
+                  Scard=-(-SQRT(Dcard)-Rcard)**(1.d0/3)
+                  Tcard=-(SQRT(Dcard)-Rcard)**(1.d0/3)
+                  x1 = Scard+Tcard-b/3.d0
+                  x2 = -(Scard+Tcard)/2.d0 - b/3.d0
+                  !write(*,*) x1**3+b*x1**2+d
+                  vv(i) = x2
+                  write(*,*) 'Dcard', Dcard, bath(i), x2
+               ELSE
+                  !write(*,*) 'ratio', Rcard/SQRT(-Qcard**3), 'Dcard', Dcard, '-Qcard', -Qcard
+                  theta = ACOS(Rcard/SQRT(-Qcard**3))
+                  x1 = 2*SQRT(-Qcard)*cos(theta/3) - b/3
+                  !write(*,*) x1**3+b*x1**2+d
+                  x2 = 2*SQRT(-Qcard)*cos(theta/3+tpio3) - b/3
+                  x3 = 2*SQRT(-Qcard)*cos(theta/3+fpio3) - b/3
+                  !write (*,*) 'x1,x2,x3',x1, x2, x3
+                  !IF (rr(1,i)<x0) THEN
+                     vv(i) = MAX(x1,x2,x3)
+                  !ELSE
+                  !    vv(i) = MIN(x1,x3)
+                  ! END IF
+                  !write(*,*) 'vv(i)', vv(i)
+               END IF
+             END IF
+           END DO
+         ! END IF
+
+       CASE(2) ! u*h component, hu = q = 6
+         IF (t.LE.1.d-14) THEN
+           DO i=1, SIZE(rr,2)
+             vv(i) = 0.d0
+           END DO
+         ELSE
+           DO i = 1, SIZE(rr,2)
+             vv(i) = q
+           END DO
+         END IF
+       !
+       ! CASE(3) ! v*h component, just 0 for now
+       !     DO i = 1, SIZE(rr,2)
+       !       vv(i) = 0.d0
+       !     END DO
+
+      CASE(3) ! eta*h component
+        DO i = 1, SIZE(rr,2)
+          vv(i) = gauss_height(i)**2
+          IF (inputs%lambda_bar < 1.d-10) THEN
+            b = bath(i) - cBer
+            d = q**2/(2*inputs%gravity)
+            Rcard = (-27*d-2*b**3)/(54)
+            Qcard = -b**2/9
+            Dcard = Qcard**3+Rcard**2
+            IF (Dcard.GE.0.d0) THEN
+               !write(*,*) Rcard**2,Qcard**3,Qcard**3+Rcard**2
+               !write(*,*) Rcard + sqrt(Dcard)
+               Scard=-(-SQRT(Dcard)-Rcard)**(1.d0/3)
+               Tcard=-(SQRT(Dcard)-Rcard)**(1.d0/3)
+               x1 = Scard+Tcard-b/3.d0
+               x2 = -(Scard+Tcard)/2.d0 - b/3.d0
+               !write(*,*) x1**3+b*x1**2+d
+               vv(i) = x2
+               write(*,*) 'Dcard', Dcard, bath(i), x2
+            ELSE
+               !write(*,*) 'ratio', Rcard/SQRT(-Qcard**3), 'Dcard', Dcard, '-Qcard', -Qcard
+               theta = ACOS(Rcard/SQRT(-Qcard**3))
+               x1 = 2*SQRT(-Qcard)*cos(theta/3) - b/3
+               !write(*,*) x1**3+b*x1**2+d
+               x2 = 2*SQRT(-Qcard)*cos(theta/3+tpio3) - b/3
+               x3 = 2*SQRT(-Qcard)*cos(theta/3+fpio3) - b/3
+               !write (*,*) 'x1,x2,x3',x1, x2, x3
+               !IF (rr(1,i)<x0) THEN
+                  vv(i) = MAX(x1,x2,x3)**2
+               !ELSE
+               !    vv(i) = MIN(x1,x3)
+               ! END IF
+               !write(*,*) 'vv(i)', vv(i)
+            END IF
+          END IF
+        END DO
+       CASE(4) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+         DO i = 1, SIZE(rr,2)
+           vv(i) = 0.d0
+         END DO
+     END SELECT
+
     CASE DEFAULT
        WRITE(*,*) ' BUG in sol_anal'
        STOP

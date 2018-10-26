@@ -124,9 +124,9 @@ CONTAINS
     lij%aa = 0.d0
 
     !===cij = \int_K \GRAD(\phi_j) \phi_i \dif x
-    if_udotn_zero = .FALSE.
-    if_udotn_zero(udotn_js_D) = .TRUE.   !ERIC
-    if_udotn_zero(h_js_D) = .FALSE.
+    ! if_udotn_zero = .FALSE.
+    ! if_udotn_zero(udotn_js_D) = .TRUE.   !ERIC
+    ! if_udotn_zero(h_js_D) = .FALSE.
     DO d = 1, k_dim
        CALL st_csr(mesh%jj, cij(d)%ia, cij(d)%ja)
        ALLOCATE(cij(d)%aa(SIZE(cij(d)%ja)))

@@ -25,7 +25,7 @@ PROGRAM shallow_water
     nb_frame=14
   END IF
   SELECT CASE(inputs%type_test)
-  CASE(13,14,15,16,17,18,19,20)
+  CASE(8,13,14,15,16,17,18,19,20)
     inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
   END SELECT
 
@@ -54,12 +54,12 @@ PROGRAM shallow_water
   CALL COMPUTE_DT(un)
 
   SELECT CASE(inputs%type_test)
-  CASE(5,8,9,11,12,13,14,15,16,17,18,19,20)
+  CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20)
     dt_frame = inputs%Tfinal/(nb_frame-1)
     CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
   END SELECT
   ! output exact solution at Tfinal for soliton with flat bath
-  IF (inputs%type_test==13) THEN
+  IF (inputs%type_test==13 .OR. inputs%type_test==20) THEN
     CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
   END IF
 
@@ -163,7 +163,7 @@ PROGRAM shallow_water
      END IF
 
      SELECT CASE(inputs%type_test)
-     CASE(5,8,9,11,12,13,14,15,16,17,18,19,20)
+     CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20)
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -171,10 +171,14 @@ PROGRAM shallow_water
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
-                    hetamovie(i) = -1.d-7*hmax0+bath(i)
+                    IF (inputs%lambdaSGN > 0.d0) THEN
+                      hetamovie(i) = -1.d-7*hmax0+bath(i)
+                    END IF
                  ELSE
                     hmovie(i) = un(1,i)+bath(i)
-                    hetamovie(i) = un(4,i)+bath(i)
+                    IF (inputs%lambdaSGN > 0.d0) THEN
+                      hetamovie(i) = un(4,i)+bath(i)
+                    END IF
                  END IF
               END DO
 
@@ -189,15 +193,21 @@ PROGRAM shallow_water
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = 0.d0
-                    hetamovie(i) = 0.d0
+                    IF (inputs%lambdaSGN > 0.d0) THEN
+                      hetamovie(i) = 0.d0
+                    END IF
                  ELSE
                     hmovie(i) = un(1,i)
-                    hetamovie(i) = un(4,i)
+                    IF (inputs%lambdaSGN > 0.d0) THEN
+                      hetamovie(i) = un(4,i)
+                    END IF
                  END IF
               !hetamovie = un(4,:)
               END DO
               CALL vtk_2d(mesh, hmovie, 10, header)
-              CALL vtk_2d(mesh,hetamovie,13,etaHeader)
+              IF (inputs%lambdaSGN > 0.d0) THEN
+                CALL vtk_2d(mesh,hetamovie,13,etaHeader)
+              END IF
               !CALL plot_scalar_field(mesh%jj, mesh%rr, hmovie, 'h_'//trim(adjustl(frame))//'.plt')
            END IF
         END IF
@@ -214,9 +224,13 @@ PROGRAM shallow_water
   !READ(7,*) time_steps
   !WRITE(*,*) time_steps(1)
   !WRITE(*,*) 'Average Time Step', SUM(time_steps(:))/SIZE(time_steps(:))
-  WRITE(*,*) 'Number of elemets', mesh%me
+  !WRITE(*,*) 'Number of elemets', mesh%me
   WRITE(*,*) 'Number of nodes  ', mesh%np
-  !WRITE(*,*) 'Average Mesh Size', inputs%avgMeshSize
+  IF (inputs%lambdaSGN > 0.d0) THEN
+    WRITE(*,*) 'You ran dispersive model.'
+  ELSE
+    WRITE(*,*) 'You ran shallow water model.'
+  END IF
 
   CALL compute_errors
   CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:)+bath, 'HplusZ.plt')

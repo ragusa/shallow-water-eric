@@ -1,5 +1,5 @@
 ROOT  = /users/eric/shallow-water-eric/SFeMANS
-OPT   = -O -Wall -fimplicit-none -fbounds-check -g -C
+OPT   = -O #-Wall -fimplicit-none -fbounds-check -g -C -fcheck=all -fbacktrace
 #OPT   = -march=native -mtune=native -Ofast
 F90   = gfortran $(OPT)
 LNK   = gfortran $(OPT)

@@ -29,9 +29,9 @@ MODULE mesh_handling
      dir = .FALSE.
      dir(inputs%ux_Dir_list) = .TRUE.
      CALL dirichlet_nodes(mesh%jjs, mesh%sides, Dir, ux_js_D)
-     dir = .FALSE.
-     dir(inputs%uy_Dir_list) = .TRUE.
-     CALL dirichlet_nodes(mesh%jjs, mesh%sides, Dir, uy_js_D)
+     ! dir = .FALSE.
+     ! dir(inputs%uy_Dir_list) = .TRUE.
+     ! CALL dirichlet_nodes(mesh%jjs, mesh%sides, Dir, uy_js_D)
 
    END SUBROUTINE construct_mesh
 

@@ -17,10 +17,12 @@ PROGRAM shallow_water
   CHARACTER(LEN=200) :: header
   CHARACTER(LEN=3)   :: frame
   LOGICAL :: once=.TRUE.
+
   inputs%syst_size=k_dim+1+2 !For shallow water+ fake GN
   CALL read_my_data('data')
   CALL construct_mesh
   CALL construct_matrices
+
 
   ALLOCATE(rk(inputs%syst_size,mesh%np),un(inputs%syst_size,mesh%np),&
        ui(inputs%syst_size,mesh%np),uo(inputs%syst_size,mesh%np),hmovie(mesh%np),&
@@ -29,6 +31,7 @@ PROGRAM shallow_water
   CALL init(un)
   uinit = un
 
+
   hmax0 = MAXVAL(un(1,:))
   CALL plot_1d(mesh%rr(1,:), bath, 'bath.plt')
   CALL plot_1d(mesh%rr(1,:), uinit(1,:), 'hinit.plt')
@@ -36,9 +39,11 @@ PROGRAM shallow_water
   CALL plot_1d(mesh%rr(1,:), uinit(2,:), 'qxinit.plt')
   CALL plot_1d(mesh%rr(1,:), uinit(3,:), 'hetainit.plt')
   CALL plot_1d(mesh%rr(1,:), uinit(4,:), 'homegainit.plt')
+  CALL plot_1d(mesh%rr(1,:), sol_anal(1,mesh%rr,inputs%Tfinal), 'h_exact.plt')
+  CALL plot_1d(mesh%rr(1,:), sol_anal(1,mesh%rr,inputs%Tfinal) + bath, 'hPz_exact.plt')
   CALL COMPUTE_DT(un)
 
-  nb_frame=0
+  nb_frame=10
   dt_frame = 1.d10
   t_frame = 1.d10
 
@@ -104,6 +109,12 @@ PROGRAM shallow_water
   END DO
   tps = user_time() - tps
   WRITE(*,*) 'total time', tps, 'Time per time step and dof', tps/(it_max*mesh%np), it_max
+  WRITE(*,*) 'total time in minutes', tps/60.d0
+  IF (inputs%if_FGN) THEN
+    WRITE(*,*) 'Ran dispersive model'
+  ELSE
+    WRITE(*,*) 'Ran shallow water model'
+  END IF
 
   CALL compute_errors
 
@@ -116,7 +127,6 @@ PROGRAM shallow_water
   CALL plot_1d(mesh%rr(1,:), un(4,:), 'h_w.plt')
   CALL plot_1d(mesh%rr(1,:), un(1,:)*velocity(1,:)**2/2, 'rho_e.plt')
   CALL plot_1d(mesh%rr(1,:), un(2,:)-sol_anal(2,mesh%rr,inputs%time), 'errqx.plt')
-
 CONTAINS
 
   SUBROUTINE COMPUTE_DT(u0)
@@ -138,9 +148,8 @@ CONTAINS
     INTEGER :: k
     IF (SIZE(h_js_D).NE.0)  uu(1,h_js_D)  = sol_anal(1,mesh%rr(:,h_js_D),t)
     IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
-    DO k = 3, inputs%syst_size
-       IF (SIZE(h_js_D).NE.0)  uu(k,h_js_D)  = sol_anal(k,mesh%rr(:,h_js_D),t)
-    END DO
+    IF (SIZE(h_js_D).NE.0)  uu(3,h_js_D)  = sol_anal(3,mesh%rr(:,h_js_D),t)
+    IF (SIZE(h_js_D).NE.0) uu(4,h_js_D)  = sol_anal(4,mesh%rr(:,h_js_D),t)
   END SUBROUTINE bdy
 
   FUNCTION user_time() RESULT(time)
@@ -159,7 +168,7 @@ CONTAINS
     REAL(KIND=8), DIMENSION(mesh%np)                 :: zero
     REAL(KIND=8) :: err, errb, norm, normb, waterh_ref = 0.d0
     SELECT CASE(inputs%type_test)
-    CASE(3,4,5,6,7,11,12,13)
+    CASE(3,4,5,6,7,11,12,13,15)
        IF (inputs%type_test==13) THEN
           waterh_ref = max_water_h
        END IF

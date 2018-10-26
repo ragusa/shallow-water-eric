@@ -35,7 +35,7 @@ MODULE input_data
      REAL(KIND=8)                   :: max_water_h
   END type my_data
   TYPE(my_data), PUBLIC  :: inputs
-  PRIVATE 
+  PRIVATE
 CONTAINS
   SUBROUTINE read_my_data(data_fichier)
     USE character_strings
@@ -49,7 +49,7 @@ CONTAINS
     inputs%epsilon_limit    = 1.d-0  !limiter + limit alpha
     inputs%epsilon_regul_h  = 1.d-10 !Velocity
     OPEN(UNIT = in_unit, FILE = data_fichier, FORM = 'formatted', STATUS = 'unknown')
-    CALL read_until(in_unit, "===Name of directory for mesh file===") 
+    CALL read_until(in_unit, "===Name of directory for mesh file===")
     READ (in_unit,*) inputs%directory
     CALL read_until(in_unit, "===Name of mesh file===")
     READ (in_unit,*) inputs%file_name
@@ -60,15 +60,15 @@ CONTAINS
     READ(in_unit,*) inputs%list_dom
     CALL read_until(21, '===Type of finite element===')
     READ(in_unit,*) inputs%type_fe
-    CALL read_until(in_unit, "===Final time===") 
+    CALL read_until(in_unit, "===Final time===")
     READ (in_unit,*) inputs%Tfinal
-    CALL read_until(in_unit, "===CFL number===") 
+    CALL read_until(in_unit, "===CFL number===")
     READ (in_unit,*) inputs%CFL
     CALL read_until(in_unit, "===Viscosity type (galerkin, viscous, entropy_visc, fct)===")
     READ (in_unit,*) inputs%viscosity_type
-    CALL read_until(in_unit, "===Type of first-order viscosity===") 
+    CALL read_until(in_unit, "===Type of first-order viscosity===")
     READ (in_unit,*) inputs%viscous_type
-    CALL read_until(in_unit, "===Alpha limitation? (True/False)===") 
+    CALL read_until(in_unit, "===Alpha limitation? (True/False)===")
     READ (in_unit,*) inputs%if_alpha_limit
     CALL read_until(in_unit, "===Lumping the mass matrix? (true/false)===")
     READ (in_unit,*) inputs%if_lumped
@@ -112,7 +112,7 @@ CONTAINS
     ELSE
        inputs%nb_frame = 0
     END IF
-    
+
     CALL find_string(in_unit, "===FGN?===(.t.,.f.),okay===",okay)
     IF (okay) THEN
        READ (in_unit,*)  inputs%if_FGN
@@ -122,20 +122,20 @@ CONTAINS
        inputs%if_FGN = .FALSE.
        inputs%lambda_bar = 0.d0
     END IF
-    
+
 
     SELECT CASE(inputs%type_test)
-    CASE(9,12,15) 
+    CASE(9,12) 
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
-    CASE(10) 
+    CASE(10)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
        CALL read_until(in_unit, "===Slope===")
        READ (in_unit,*) inputs%slope
        CALL read_until(in_unit, "===Discharge===")
        READ (in_unit,*) inputs%discharge
-    CASE(11) 
+    CASE(11)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
        CALL read_until(in_unit, "===Discharge===")
@@ -147,5 +147,3 @@ CONTAINS
  CLOSE(in_unit)
 END SUBROUTINE read_my_data
 END MODULE input_data
-
-
