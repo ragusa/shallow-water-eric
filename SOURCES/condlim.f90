@@ -353,7 +353,7 @@ CONTAINS
       ! initial constants go here
       inputs%gravity = 9.81d0
       h0 = 1.d0
-      a = 0.5d0 ! amplitude
+      a = 8.d0 ! amplitude
       inputs%max_water_h = a + h0
 
       max_water_h=12.d0 !!MAXVAL(bath_old)
@@ -1524,7 +1524,7 @@ CONTAINS
           vv(i) = 0.d0
         END DO
       END SELECT
-    CASE(21) ! mGN undular bore
+    CASE(21) ! mGN DEM
 
 
       OPEN(unit=30,file='../MESHES/DEMS/port_isabel_mesh.FEM',FORM='unformatted')
@@ -1541,27 +1541,31 @@ CONTAINS
 
       ! initial constants go here
       inputs%gravity = 9.81d0
-      h0 = .2d0
-      a = 0.28d0 ! amplitude
+      h0 = 1.d0
+      !a = 1.28d0 ! amplitude
+      a = 8.d0
       k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3)) ! wavenumber
       z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a)))
       L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
       c = SQRT(inputs%gravity * (1.d0 + a) * h0)
-      x0 = -279600.d0 ! initial location of solitary wave
+      x0 = -269600.d0 ! initial location of solitary wave
       c = - c
+      z = 1000.d0
+      ! WRITE(*,*) a, h0, z, c
+      ! STOP
 
       SELECT CASE(k)
       CASE(1) ! h water height
           DO i = 1, SIZE(rr,2)
             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-            htilde= h0 + a * h0 * sechSqd
+            htilde= a * h0 * sechSqd
             vv(i) = MAX(htilde - bath(i),0.d0)
           END DO
 
       CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
         DO i = 1, SIZE(rr,2)
           sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-          htilde= h0 + a * h0 * sechSqd ! this is exact solitary wave
+          htilde= a * h0 * sechSqd ! this is exact solitary wave
           vv(i) = MAX(htilde-bath(i),0.d0)
           vv(i) =  vv(i) * c * htilde / (h0 + htilde)
         END DO
@@ -1569,7 +1573,7 @@ CONTAINS
       CASE(3) ! v*h component, just 0 for now
         DO i = 1, SIZE(rr,2)
           sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-          htilde= h0 + a * h0 * sechSqd
+          htilde= a * h0 * sechSqd
           vv(i) = MAX(htilde - bath(i),0.d0)
           vv(i) = 0.d0
         END DO
@@ -1577,7 +1581,7 @@ CONTAINS
          IF (t.LE.1.d-14) THEN
            DO i = 1, SIZE(rr,2)
              sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= h0 + a * h0 * sechSqd
+             htilde= a * h0 * sechSqd
              vv(i) = MAX(htilde - bath(i),0.d0)
              vv(i) = vv(i) * vv(i)
            END DO
@@ -1586,7 +1590,7 @@ CONTAINS
         IF (t.LE.1.d-14) THEN
            DO i = 1, SIZE(rr,2)
              sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= h0 + a * h0 * sechSqd ! this is exact solution
+             htilde= a * h0 * sechSqd ! this is exact solution
              hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
              vv(i) = MAX(htilde - bath(i),0.d0)
              ! this is -waterHeight^2 * div(velocity)
