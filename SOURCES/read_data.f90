@@ -21,7 +21,7 @@ MODULE input_data
      INTEGER, DIMENSION(:), POINTER :: h_Dir_list, ux_Dir_list, uy_Dir_list, &
                                        heta_Dir_list, hw_Dir_list
      REAL(KIND=8)                   :: gravity
-     REAL(KIND=8)                   :: mannings
+     REAL(KIND=8)                   :: mannings, rainRate
      REAL(KIND=8)                   :: eta
      INTEGER                        :: nb_Dir_bdy
      INTEGER, DIMENSION(:), POINTER :: Dir_list
@@ -82,30 +82,38 @@ CONTAINS
     READ (in_unit,*)  inputs%uy_nb_Dir_bdy
     CALL read_until(in_unit, "===List of Dirichlet boundaries for uy?===")
     ALLOCATE(inputs%uy_Dir_list(inputs%uy_nb_Dir_bdy))
-    READ (in_unit,*) inputs%uy_Dir_list
-    CALL read_until(in_unit, "===How many Dirichlet boundaries for heta?===")
-    READ (in_unit,*)  inputs%heta_nb_Dir_bdy
-    CALL read_until(in_unit, "===List of Dirichlet boundaries for heta?===")
-    ALLOCATE(inputs%heta_Dir_list(inputs%heta_nb_Dir_bdy))
-    READ (in_unit,*) inputs%heta_Dir_list
-    CALL read_until(in_unit, "===How many Dirichlet boundaries for hw?===")
-    READ (in_unit,*)  inputs%hw_nb_Dir_bdy
-    CALL read_until(in_unit, "===List of Dirichlet boundaries for hw?===")
-    ALLOCATE(inputs%hw_Dir_list(inputs%hw_nb_Dir_bdy))
-    READ (in_unit,*) inputs%hw_Dir_list
+
 
     SELECT CASE(inputs%type_test)
-    CASE(9,10,14,15,16)
+    CASE(8,9,10,14,15,16,21)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
     CASE DEFAULT
        inputs%mannings = 0.d0
     END SELECT
 
+    SELECT CASE(inputs%type_test)
+    CASE(21)
+       CALL read_until(in_unit, "===Rain rate===")
+       READ (in_unit,*) inputs%rainRate
+    CASE DEFAULT
+       inputs%rainRate = 0.d0
+    END SELECT
+
     SELECT CASE(inputs%type_test) ! for hyperbolic SGN model
-    CASE(13,14,15,16,17,18,19,20)
-       CALL read_until(in_unit, "===Lambda for SGN model===")
-       READ (in_unit,*) inputs%lambdaSGN
+    CASE(8,13,14,15,16,17,18,19,20,21)
+      CALL read_until(in_unit, "===How many Dirichlet boundaries for heta?===")
+      READ (in_unit,*)  inputs%heta_nb_Dir_bdy
+      CALL read_until(in_unit, "===List of Dirichlet boundaries for heta?===")
+      ALLOCATE(inputs%heta_Dir_list(inputs%heta_nb_Dir_bdy))
+      READ (in_unit,*) inputs%heta_Dir_list
+      CALL read_until(in_unit, "===How many Dirichlet boundaries for hw?===")
+      READ (in_unit,*)  inputs%hw_nb_Dir_bdy
+      CALL read_until(in_unit, "===List of Dirichlet boundaries for hw?===")
+      ALLOCATE(inputs%hw_Dir_list(inputs%hw_nb_Dir_bdy))
+      READ (in_unit,*) inputs%hw_Dir_list
+      CALL read_until(in_unit, "===Lambda for SGN model===")
+      READ (in_unit,*) inputs%lambdaSGN
     END SELECT
 
  CLOSE(in_unit)
