@@ -62,6 +62,10 @@ PROGRAM shallow_water
   IF (inputs%type_test==13 .OR. inputs%type_test==20) THEN
     CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
   END IF
+  ! for initial time
+  CALL vtk_2d(mesh, sol_anal(1,mesh%rr,0.d0),51,'h_init.vtk')
+  CALL vtk_2d(mesh, bath + sol_anal(1,mesh%rr,0.d0),52,'hPz_init.vtk')
+  !STOP
 
 
   tps = user_time()

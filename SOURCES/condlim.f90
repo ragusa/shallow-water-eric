@@ -350,20 +350,24 @@ CONTAINS
             1.d0 / (a + h0*EXP((x/L)**2))**2 * (term1 + term2)
       inputs%max_water_h = h0 + a
     CASE(21) ! DEM File
-        inputs%gravity=9.81d0
+      ! initial constants go here
+      inputs%gravity = 9.81d0
+      h0 = 1.d0
+      a = 0.5d0 ! amplitude
+      inputs%max_water_h = a + h0
 
-        max_water_h=12.d0 !!MAXVAL(bath_old)
-        OPEN(unit=30,file='../MESHES/DEMS/port_isabel_mesh.FEM',FORM='unformatted')
-        READ(30)
-        READ(30) jj_old
-        ALLOCATE(new_to_old(mesh%np))
-        DO m = 1, mesh%me
-           new_to_old(mesh%jj(:,m))=jj_old(:,m)
-        END DO
-        OPEN(unit=30,file='../DEM_test/port_isabel_elevation.txt',FORM='formatted')
-        READ(30,*) bath_old
-        bath = bath_old(new_to_old)
-        CLOSE(30)
+      max_water_h=12.d0 !!MAXVAL(bath_old)
+      OPEN(unit=30,file='../MESHES/DEMS/port_isabel_mesh.FEM',FORM='unformatted')
+      READ(30)
+      READ(30) jj_old
+      ALLOCATE(new_to_old(mesh%np))
+      DO m = 1, mesh%me
+         new_to_old(mesh%jj(:,m))=jj_old(:,m)
+      END DO
+      OPEN(unit=30,file='../DEM_test/port_isabel_elevation.txt',FORM='formatted')
+      READ(30,*) bath_old
+      bath = bath_old(new_to_old)
+      CLOSE(30)
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -514,8 +518,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: k
     REAL(KIND=8), DIMENSION(:,:),  INTENT(IN) :: rr
     REAL(KIND=8),                  INTENT(IN) :: t
-    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, x_coord, bath, gauss_height, term1, term2, term3
-    INTEGER :: i
+    REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, x_coord, bath_old, &
+                            bath, gauss_height, term1, term2, term3
+    INTEGER :: i, m
+    INTEGER, DIMENSION(3,mesh%me) :: jj_old
     REAL(KIND=8) :: x, x0, speed, q0, hL, b, d, x1, x2, x3, &
          theta, Rcard, Scard, Tcard, Qcard, Dcard, tpio3, fpio3, a, omega, eta, h0, bernoulli, &
          xshock, h_pre_shock, h_post_shock, bath_shock, bathi, Ber_pre, Ber_post, &
@@ -1519,34 +1525,78 @@ CONTAINS
         END DO
       END SELECT
     CASE(21) ! mGN undular bore
+
+
+      OPEN(unit=30,file='../MESHES/DEMS/port_isabel_mesh.FEM',FORM='unformatted')
+      READ(30)
+      READ(30) jj_old
+      !ALLOCATE(new_to_old(mesh%np))
+      DO m = 1, mesh%me
+         new_to_old(mesh%jj(:,m))=jj_old(:,m)
+      END DO
+      OPEN(unit=30,file='../DEM_test/port_isabel_elevation.txt',FORM='formatted')
+      READ(30,*) bath_old
+      bath = bath_old(new_to_old)
+      CLOSE(30)
+
       ! initial constants go here
       inputs%gravity = 9.81d0
+      h0 = .2d0
+      a = 0.28d0 ! amplitude
+      k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3)) ! wavenumber
+      z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a)))
+      L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
+      c = SQRT(inputs%gravity * (1.d0 + a) * h0)
+      x0 = -279600.d0 ! initial location of solitary wave
+      c = - c
 
       SELECT CASE(k)
       CASE(1) ! h water height
           DO i = 1, SIZE(rr,2)
-              vv(i) = 0.2d0 - bath(i)
+            sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+            htilde= h0 + a * h0 * sechSqd
+            vv(i) = MAX(htilde - bath(i),0.d0)
           END DO
 
-      CASE(2) ! u*h component, u = 0
+      CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
         DO i = 1, SIZE(rr,2)
-            vv(i) = 0.d0
+          sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+          htilde= h0 + a * h0 * sechSqd ! this is exact solitary wave
+          vv(i) = MAX(htilde-bath(i),0.d0)
+          vv(i) =  vv(i) * c * htilde / (h0 + htilde)
         END DO
 
       CASE(3) ! v*h component, just 0 for now
         DO i = 1, SIZE(rr,2)
-            vv(i) = 0.d0
+          sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+          htilde= h0 + a * h0 * sechSqd
+          vv(i) = MAX(htilde - bath(i),0.d0)
+          vv(i) = 0.d0
         END DO
-
       CASE(4) ! eta*h component
-        DO i = 1, SIZE(rr,2)
-            vv(i) = (0.2d0 - bath(i))**2
-        END DO
+         IF (t.LE.1.d-14) THEN
+           DO i = 1, SIZE(rr,2)
+             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+             htilde= h0 + a * h0 * sechSqd
+             vv(i) = MAX(htilde - bath(i),0.d0)
+             vv(i) = vv(i) * vv(i)
+           END DO
+         END IF
       CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
-        DO i = 1, SIZE(rr,2)
-            vv(i) = 0.d0
-        END DO
+        IF (t.LE.1.d-14) THEN
+           DO i = 1, SIZE(rr,2)
+             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+             htilde= h0 + a * h0 * sechSqd ! this is exact solution
+             hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+             vv(i) = MAX(htilde - bath(i),0.d0)
+             ! this is -waterHeight^2 * div(velocity)
+             vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+           END DO
+        END IF
       END SELECT
+
+
+
    CASE DEFAULT
       WRITE(*,*) ' BUG in sol_anal'
       STOP
