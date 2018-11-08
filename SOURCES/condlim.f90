@@ -54,7 +54,7 @@ CONTAINS
           vv(3,2,n) = velocity(2,n)*un(3,n) ! v vh
 
        END DO
-    CASE(8, 13,14,15,16,17,18,19,20) ! cases 13+ for modifed SGN hyperbolic model
+    CASE(8, 13,14,15,16,17,18,19,20,21) ! cases 13+ for modifed SGN hyperbolic model
        one_over_h = compute_one_over_h(un(1,:))
       DO n = 1, mesh%np
        IF (k_dim==1) THEN
@@ -116,7 +116,7 @@ CONTAINS
     !===For malpasset
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
     REAL(KIND=8), DIMENSION(mesh%np) :: bath_old, x, gauss_height, term1,term2,term3
-    INTEGER :: m
+    INTEGER :: m, test
     !===
     ALLOCATE(bath(mesh%np))
     ALLOCATE(one_over_h(mesh%np))
@@ -124,7 +124,7 @@ CONTAINS
     SELECT CASE(inputs%type_test)
     CASE(1,2,3,4,5,6,7,9,10,11,12)
       ALLOCATE(velocity(k_dim,mesh%np)) !this is original
-    CASE(8,13,14,15,16,17,18,19,20)
+    CASE(8,13,14,15,16,17,18,19,20,21)
       ALLOCATE(velocity(k_dim + 2,mesh%np)) ! for modified SGN model, u v eta w
     END SELECT
     ! IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
@@ -349,11 +349,21 @@ CONTAINS
             + 2.d0 * a * q**2 / (3.d0 * inputs%gravity * L**4) *  &
             1.d0 / (a + h0*EXP((x/L)**2))**2 * (term1 + term2)
       inputs%max_water_h = h0 + a
+    CASE(21) ! DEM File
+        inputs%gravity=9.81d0
 
-
-
-
-
+        max_water_h=12.d0 !!MAXVAL(bath_old)
+        OPEN(unit=30,file='../MESHES/DEMS/port_isabel_mesh.FEM',FORM='unformatted')
+        READ(30)
+        READ(30) jj_old
+        ALLOCATE(new_to_old(mesh%np))
+        DO m = 1, mesh%me
+           new_to_old(mesh%jj(:,m))=jj_old(:,m)
+        END DO
+        OPEN(unit=30,file='../DEM_test/port_isabel_elevation.txt',FORM='formatted')
+        READ(30,*) bath_old
+        bath = bath_old(new_to_old)
+        CLOSE(30)
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -1508,7 +1518,35 @@ CONTAINS
           vv(i) = 0.d0
         END DO
       END SELECT
+    CASE(21) ! mGN undular bore
+      ! initial constants go here
+      inputs%gravity = 9.81d0
 
+      SELECT CASE(k)
+      CASE(1) ! h water height
+          DO i = 1, SIZE(rr,2)
+              vv(i) = 0.2d0 - bath(i)
+          END DO
+
+      CASE(2) ! u*h component, u = 0
+        DO i = 1, SIZE(rr,2)
+            vv(i) = 0.d0
+        END DO
+
+      CASE(3) ! v*h component, just 0 for now
+        DO i = 1, SIZE(rr,2)
+            vv(i) = 0.d0
+        END DO
+
+      CASE(4) ! eta*h component
+        DO i = 1, SIZE(rr,2)
+            vv(i) = (0.2d0 - bath(i))**2
+        END DO
+      CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+        DO i = 1, SIZE(rr,2)
+            vv(i) = 0.d0
+        END DO
+      END SELECT
    CASE DEFAULT
       WRITE(*,*) ' BUG in sol_anal'
       STOP
@@ -1581,7 +1619,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+    CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
        !IF (hl.LE.inputs%htiny .AND. hr.LE.inputs%htiny) THEN
        !   lambda = 0.d0
        !   RETURN

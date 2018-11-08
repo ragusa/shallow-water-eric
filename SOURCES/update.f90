@@ -421,9 +421,9 @@ CONTAINS
        CALL my_friction(un,rk)
      CASE(12) ! (Eric T.)
        CALL coriolis(un,rk) ! (Eric T.)
-     CASE(13,15,17,18,19,20)
+     CASE(13,15,17,18,19,20,21)
        CALL mSGN_RHS(un,rk)
-     CASE(14,16)
+     CASE(8, 14,16)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
     END SELECT
@@ -492,6 +492,20 @@ CONTAINS
     END DO
   END SUBROUTINE coriolis
 
+  SUBROUTINE rain(un,rk) ! (made by Eric T., 11/7/2018)
+    USE mesh_handling
+    USE boundary_conditions
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
+    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
+    INTEGER :: d, i, j, k, p
+    DO i = 1, mesh%np
+        DO j = 3, inputs%syst_size
+           rk(1,i) = rk(1,i) + lumped(i) * inputs%rainRate/3600.d0
+        END DO
+    END DO
+  END SUBROUTINE rain
+
   SUBROUTINE mSGN_RHS(un,rk)
     USE mesh_handling
     USE boundary_conditions
@@ -520,7 +534,7 @@ CONTAINS
 
     DO n = 1,mesh%np
       localMeshSize(n) = SQRT(lumped(n))
-      alpha(n) = inputs%lambdaSGN/(3*localMeshSize(n))
+      alpha(n) = inputs%lambdaSGN/(3.d0*localMeshSize(n))
       paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(localMeshSize(n))
     END DO
 
@@ -533,12 +547,12 @@ CONTAINS
           heta_GammaP(i) = 0.d0
         ELSE IF (eta(i).LE.x0*h(i)) THEN
           pTilde(i) = -alpha(i)*inputs%gravity*eta(i)*(eta(i)**2-h(i)**2)
-          hSqd_Gammap(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
-          heta_Gammap(i) = 3*eta(i)**2*eta_over_h(i)+un(inputs%syst_size-1,i)-4*eta(i)**2
+          hSqd_GammaP(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
+          heta_GammaP(i) = 3*eta(i)**2*eta_over_h(i)+un(inputs%syst_size-1,i)-4*eta(i)**2
         ELSE
           pTilde(i) = -alpha(i)*inputs%gravity*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
-          hSqd_Gammap(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
-          heta_Gammap(i) = 4*(x0-1.d0)*eta(i)**2 + (1-x0**2)*un(inputs%syst_size-1,i)
+          hSqd_GammaP(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
+          heta_GammaP(i) = 4*(x0-1.d0)*eta(i)**2 + (1-x0**2)*un(inputs%syst_size-1,i)
         END IF
       END DO
 
@@ -556,7 +570,7 @@ CONTAINS
        END DO
        !update hw equation with source term
        DO k = inputs%syst_size, inputs%syst_size
-             rk(k,i) = rk(k,i) - paper_constant(i)*lumped(i)*hSqd_Gammap(i)*ratio(i)**3
+             rk(k,i) = rk(k,i) - paper_constant(i)*lumped(i)*hSqd_GammaP(i)*ratio(i)**3
        END DO
 
     END DO
@@ -632,9 +646,13 @@ CONTAINS
        CALL coriolis(un,rk) ! (Eric T.)
      CASE(13,15,17,18,19,20)
        CALL mSGN_RHS(un,rk)
-     CASE(14,16)
+     CASE(8,14,16)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
+     CASE(21)
+       CALL mSGN_RHS(un,rk)
+       CALL friction(un,rk)
+       CALL rain(un,rk)
     END SELECT
   END SUBROUTINE smb_2_roundoff
 
@@ -693,9 +711,14 @@ CONTAINS
        CALL coriolis(un,rk) ! (Eric T.)
      CASE(13,15,17,18,19,20)
        CALL mSGN_RHS(un,rk)
-     CASE(14,16)
+     CASE(8,14,16)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
+     CASE(21)
+       CALL mSGN_RHS(un,rk)
+       CALL friction(un,rk)
+       CALL rain(un,rk)
+
     END SELECT
   END SUBROUTINE smb_2
 
@@ -830,7 +853,7 @@ SUBROUTINE check_hmin(h)
  IMPLICIT NONE
  REAL(KIND=8), DIMENSION(:,:) :: h
  SELECT CASE(inputs%type_test)
- CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+ CASE(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
  IF (MINVAL(h(1,:))<0.d0) THEN
     WRITE(*,*) 'Min h<0, STOP', MINVAL(h)
     WRITE(*,*) 'MAXVAL(vel)', MAXVAL(ABS(velocity(1,:))), MAXVAL(ABS(velocity(2,:)))

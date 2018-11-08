@@ -21,11 +21,11 @@ PROGRAM shallow_water
   CALL construct_matrices
   inputs%syst_size=k_dim+1 !For shallow water
 
-  IF (inputs%type_test==14) THEN
-    nb_frame=14
-  END IF
+  !IF (inputs%type_test==14) THEN
+  !  nb_frame=14
+  !END IF
   SELECT CASE(inputs%type_test)
-  CASE(8,13,14,15,16,17,18,19,20)
+  CASE(8,13,14,15,16,17,18,19,20,21)
     inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
   END SELECT
 
@@ -54,7 +54,7 @@ PROGRAM shallow_water
   CALL COMPUTE_DT(un)
 
   SELECT CASE(inputs%type_test)
-  CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20)
+  CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20,21)
     dt_frame = inputs%Tfinal/(nb_frame-1)
     CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
   END SELECT
@@ -163,7 +163,7 @@ PROGRAM shallow_water
      END IF
 
      SELECT CASE(inputs%type_test)
-     CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20)
+     CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20,21)
         IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
               kit=kit+1
@@ -263,7 +263,7 @@ CONTAINS
     IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
     ! we add boundary conditions to heta and hw
     SELECT CASE(inputs%type_test)
-    CASE(5,8,9,11,12,13,14,15,16,17,18,19,20)
+    CASE(5,8,9,11,12,13,14,15,16,17,18,19,20,21)
       IF (SIZE(heta_js_D).NE.0) uu(4,heta_js_D) = sol_anal(4,mesh%rr(:,heta_js_D),t)
       IF (SIZE(hw_js_D).NE.0) uu(5,hw_js_D) = sol_anal(5,mesh%rr(:,hw_js_D),t)
     END SELECT
