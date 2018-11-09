@@ -652,7 +652,7 @@ CONTAINS
      CASE(21)
        CALL mSGN_RHS(un,rk)
        CALL friction(un,rk)
-       !CALL rain(un,rk)
+       CALL rain(un,rk)
     END SELECT
   END SUBROUTINE smb_2_roundoff
 
