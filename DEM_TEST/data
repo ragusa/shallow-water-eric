@@ -5,9 +5,9 @@ port_isabel_mesh.FEM
 ===Test case number===
 21
 ===Final time===
-36.0
+1.0
 ===CFL number===
-0.01d0
+0.0005d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 ===Type of first-order viscosity===
@@ -45,6 +45,6 @@ port_isabel_mesh.FEM
 ===Lambda for SGN model===
 1.d0
 ===Mannings coefficient===
-0.0d0
+0.001d0
 ===Rain rate===
 .05d0
