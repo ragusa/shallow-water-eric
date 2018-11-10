@@ -284,7 +284,6 @@ CONTAINS
     CALL check_Hmin(unext)
 
     RETURN
-
   END SUBROUTINE euler
 
   SUBROUTINE compute_dij(un)
@@ -500,9 +499,7 @@ CONTAINS
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
     INTEGER :: d, i, j, k, p
     DO i = 1, mesh%np
-        DO j = 3, inputs%syst_size
            rk(1,i) = rk(1,i) + lumped(i) * inputs%rainRate/3600.d0
-        END DO
     END DO
   END SUBROUTINE rain
 
@@ -663,7 +660,6 @@ CONTAINS
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
     REAL(KIND=8), DIMENSION(inputs%syst_size,k_dim,mesh%np)        :: vv
-    ! note that k_dim is okay here for SGN as long as just set second row = 0
     INTEGER :: d, i, j, k, p
     REAL(KIND=8) :: xx, hmean, Hstarij, Hstarji, ratij, ratji
     vv=flux(un)
@@ -974,5 +970,26 @@ SUBROUTINE maxmin(un,mat,maxn,minn)
      minn(i) = MINVAL(un(mat%ja(mat%ia(i):mat%ia(i+1)-1)))
   END DO
 END SUBROUTINE maxmin
+
+SUBROUTINE smoothing(un,un_new)
+  USE mesh_handling
+  IMPLICIT NONE
+  !TYPE(matrice_bloc),         INTENT(IN)  :: mat
+  REAL(KIND=8), DIMENSION(:), INTENT(IN)  :: un
+  REAL(KIND=8), DIMENSION(:), INTENT(OUT) :: un_new
+  INTEGER      :: i,j,p,n
+  DO i = 1, mesh%np
+    ! DO p = mat%ia(i), mat%ia(i+1) - 1
+    !    n = mat%ia(i+1) - 1 - mat%ia(i)
+    !    j = mat%ja(p)
+    !    un_new(i) = (n * un(i) + un(j))/(2.d0 * n)
+    ! END DO
+    DO p = dij%ia(i), dij%ia(i+1) - 1
+       n = dij%ia(i+1) - 1 - dij%ia(i)
+       j = dij%ja(p)
+       un_new(i) = (n * un(i) + un(j))/(2.d0 * n)
+    END DO
+  END DO
+END SUBROUTINE smoothing
 
 END MODULE update

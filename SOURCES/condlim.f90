@@ -11,6 +11,7 @@ MODULE boundary_conditions
   !19=modified SGN model, undular bore (ie dam break) (Eric T.)
   !20=modified SGN model, steady state gaussian (Eric T.)
   USE input_data
+  USE smoothing
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: bath
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: velocity
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: one_over_h
@@ -115,8 +116,9 @@ CONTAINS
          x0, SS, slope, flat_height, c, L, k_wavenumber, q, cGN, cBer
     !===For malpasset
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
-    REAL(KIND=8), DIMENSION(mesh%np) :: bath_old, x, gauss_height, term1,term2,term3
-    INTEGER :: m, test
+    REAL(KIND=8), DIMENSION(mesh%np) :: bath_new, bath_old, x, gauss_height, &
+                                        term1,term2,term3
+    INTEGER :: m
     !===
     ALLOCATE(bath(mesh%np))
     ALLOCATE(one_over_h(mesh%np))
@@ -127,13 +129,6 @@ CONTAINS
     CASE(8,13,14,15,16,17,18,19,20,21)
       ALLOCATE(velocity(k_dim + 2,mesh%np)) ! for modified SGN model, u v eta w
     END SELECT
-    ! IF (inputs%type_test==13 .OR. inputs%type_test==14 .OR. inputs%type_test==15 &
-    !           .OR. inputs%type_test==16 .OR. inputs%type_test==17 .OR. &
-    !           inputs%type_test==18 .OR. inputs%type_test==19) THEN
-    !   ALLOCATE(velocity(k_dim + 2,mesh%np)) ! for modified SGN model, u v eta w
-    ! ELSE
-    !   ALLOCATE(velocity(k_dim,mesh%np)) !this is original
-    ! END IF
 
     !===
     SELECT CASE(inputs%type_test)
@@ -352,11 +347,10 @@ CONTAINS
     CASE(21) ! DEM File
       ! initial constants go here
       inputs%gravity = 9.81d0
-      h0 = 1.d0
+      h0 = 20.d0
       a = 8.d0 ! amplitude
       inputs%max_water_h = a + h0
 
-      max_water_h=12.d0 !!MAXVAL(bath_old)
       OPEN(unit=30,file='../MESHES/DEMS/port_isabel_mesh.FEM',FORM='unformatted')
       READ(30)
       READ(30) jj_old
@@ -368,7 +362,13 @@ CONTAINS
       READ(30,*) bath_old
       bath = bath_old(new_to_old)
       CLOSE(30)
-      bath = bath -1.d0
+
+      ! here we smooth the bathymetry using a discrete laplacian
+      bath_old = bath
+      CALL apply_smoothing(bath_old,bath)
+      bath_old = bath
+      CALL apply_smoothing(bath_old,bath)
+
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -520,7 +520,7 @@ CONTAINS
     REAL(KIND=8), DIMENSION(:,:),  INTENT(IN) :: rr
     REAL(KIND=8),                  INTENT(IN) :: t
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: vv, x_coord, bath_old, &
-                            bath, gauss_height, term1, term2, term3
+                            bath, gauss_height, term1, term2, term3, bath_new
     INTEGER :: i, m
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
     REAL(KIND=8) :: x, x0, speed, q0, hL, b, d, x1, x2, x3, &
@@ -1539,13 +1539,18 @@ CONTAINS
       READ(30,*) bath_old
       bath = bath_old(new_to_old)
       CLOSE(30)
-      !bath = bath - 1.d0
+      ! here we smooth the bathymetry using a discrete laplacian 
+      bath_old = bath
+      CALL apply_smoothing(bath_old,bath)
+      bath_old = bath
+      CALL apply_smoothing(bath_old,bath)
+
 
       ! initial constants go here
       inputs%gravity = 9.81d0
-      h0 = 1.d0
+      !h0 = 1.d0
       !a = 1.28d0 ! amplitude
-      a = 8.d0
+      !a = 8.d0
       k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3)) ! wavenumber
       z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a)))
       L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
@@ -1554,75 +1559,61 @@ CONTAINS
       c = - c
       z = 1.d0 / 10000.d0
       radius = 5000.d0
+      h0 = 20.d0
 
       SELECT CASE(k)
       CASE(1) ! h water height
         IF (t.LE.1d-14) THEN
           DO i = 1, SIZE(rr,2)
             IF ((rr(1,i)+340000)**2 + (rr(2,i)-104000)**2 .LE. radius**2) THEN
-              htilde = 4.d0
+              htilde = h0
             ELSE
               htilde = inputs%htiny
             END IF
-            !vv(i) = MAX(htilde - bath(i),0.d0)
-            vv(i) = htilde
+            vv(i) = MAX(htilde - bath(i),0.d0)
           END DO
         END IF
 
       CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
         IF (t.LE.1d-14) THEN
           DO i = 1, SIZE(rr,2)
-            ! sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-            ! htilde= a * h0 * sechSqd ! this is exact solitary wave
             IF ((rr(1,i)+340000)**2 + (rr(2,i)-104000)**2 .LE. radius**2) THEN
-              htilde = 4.d0
+              htilde = h0
             ELSE
               htilde = inputs%htiny
             END IF
-            !vv(i) = MAX(htilde - bath(i),0.d0)
-            vv(i) = htilde
-            vv(i) =  vv(i) * 6.d0
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            vv(i) = vv(i) * 12.d0
           END DO
         END IF
 
       CASE(3) ! v*h component, just 0 for now
         IF (t.LE.1d-14) THEN
           DO i = 1, SIZE(rr,2)
-            ! sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-            ! htilde= a * h0 * sechSqd ! this is exact solitary wave
             IF ((rr(1,i)+340000)**2 + (rr(2,i)-104000)**2 .LE. radius**2) THEN
-              htilde = 4.d0
+              htilde = h0
             ELSE
               htilde = inputs%htiny
             END IF
-            !vv(i) = MAX(htilde - bath(i),0.d0)
-            vv(i) = htilde
-            vv(i) =  vv(i) * 10.d0
+            vv(i) = MAX(htilde - bath(i),0.d0)
+            vv(i) = vv(i) * 4.d0
           END DO
         END IF
+
       CASE(4) ! eta*h component
         IF (t.LE.1d-14) THEN
           DO i = 1, SIZE(rr,2)
-            ! sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-            ! htilde= a * h0 * sechSqd ! this is exact solitary wave
             IF ((rr(1,i)+340000)**2 + (rr(2,i)-104000)**2 .LE. radius**2) THEN
-              htilde = 4.d0
+              htilde = h0
             ELSE
               htilde = inputs%htiny
             END IF
-            !vv(i) = MAX(htilde - bath(i),0.d0)**2
-            vv(i) = htilde**2
+            vv(i) = MAX(htilde - bath(i),0.d0)**2
           END DO
         END IF
       CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
         IF (t.LE.1.d-14) THEN
            DO i = 1, SIZE(rr,2)
-             ! sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             ! htilde= a * h0 * sechSqd ! this is exact solution
-             ! hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
-             ! vv(i) = MAX(htilde - bath(i),0.d0)
-             ! ! this is -waterHeight^2 * div(velocity)
-             ! vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
              vv(i) = 0.d0
            END DO
         END IF
@@ -1786,5 +1777,21 @@ CONTAINS
     END IF
     vv = fl + fr + ur - ul
   END FUNCTION phi
+
+  ! SUBROUTINE smoothing(mat,un,un_new)
+  !   USE mesh_handling
+  !   IMPLICIT NONE
+  !   TYPE(matrice_bloc),         INTENT(IN)  :: mat
+  !   REAL(KIND=8), DIMENSION(:), INTENT(IN)  :: un
+  !   REAL(KIND=8), DIMENSION(:), INTENT(OUT) :: un_new
+  !   INTEGER      :: i,j,p,n
+  !   DO i = 1, mesh%np
+  !     DO p = mat%ia(i), mat%ia(i+1) - 1
+  !        n = mat%ia(i+1) - 1 - math%ia(i)
+  !        j = mat%ja(p)
+  !        un_new(i) = (n * un(i) + un(j))/(2.d0 * n)
+  !     END DO
+  !   END DO
+  ! END SUBROUTINE smoothing
 
 END MODULE boundary_conditions
