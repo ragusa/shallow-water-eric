@@ -25,11 +25,11 @@ sleep .5
 sed -i "/^mesh/c\mesh_3200.FEM" $file_in 
 sleep .5
 nohup $run > lis_3200 & 
-sleep .5
-sed -i "/^mesh/c\mesh_6400.FEM" $file_in 
-sleep .5
-nohup $run > lis_6400 & 
-sleep .5
-sed -i "/^mesh/c\mesh_12800.FEM" $file_in 
-sleep .5
-nohup $run > lis_12800 &  
+#sleep .5
+#sed -i "/^mesh/c\mesh_6400.FEM" $file_in 
+#sleep .5
+#nohup $run > lis_6400 & 
+#sleep .5
+#sed -i "/^mesh/c\mesh_12800.FEM" $file_in 
+#sleep .5
+#nohup $run > lis_12800 &  

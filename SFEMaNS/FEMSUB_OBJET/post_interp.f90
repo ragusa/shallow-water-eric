@@ -4,7 +4,7 @@ MODULE mesh_interpolation
   PRIVATE
 
   !============================================================================!
-  REAL(KIND=8) ::  eps_diam_ref = 1.d-12  ! 1.d-14 Controle d'erreur d'arrondi ! 
+  REAL(KIND=8) ::  eps_diam_ref = 1.d-12  ! 1.d-14 Controle d'erreur d'arrondi !
   !                pour determiner si r_old est un vertex du triangle m_old    !
   !============================================================================!
 
@@ -32,7 +32,7 @@ CONTAINS
     END IF
 
     IF (new) THEN
-       IF (ALLOCATED(m_goal)) DEALLOCATE(m_goal) 
+       IF (ALLOCATED(m_goal)) DEALLOCATE(m_goal)
        ALLOCATE(m_goal(new_mesh%np))
        r_init = new_mesh%rr(:,1)
        DO m = 1, mesh%me ! search of element containing r
@@ -41,7 +41,7 @@ CONTAINS
              EXIT
           END IF
        END DO
-       m_goal(1) = m_init 
+       m_goal(1) = m_init
        r_init(1) = SUM(mesh%rr(1,mesh%jj(1:3,m_init)))/3
        r_init(2) = SUM(mesh%rr(2,mesh%jj(1:3,m_init)))/3
 
@@ -56,7 +56,7 @@ CONTAINS
           r_init(1) = SUM(mesh%rr(1,mesh%jj(1:3,m_goal(n))))/3
           r_init(2) = SUM(mesh%rr(2,mesh%jj(1:3,m_goal(n))))/3
           m_init = m_goal(n)
-          !write(*,*) ' m_goal', m_goal(n),  r_goal, inside(mesh,m_goal(n),r_goal) 
+          !write(*,*) ' m_goal', m_goal(n),  r_goal, inside(mesh,m_goal(n),r_goal)
        END DO
        once = .TRUE.
     END IF
@@ -336,7 +336,7 @@ CONTAINS
     REAL(KIND=8), DIMENSION(2,3) :: rv, n
     REAL(KIND=8), DIMENSION(2)   :: d
     REAL(KIND=8), DIMENSION(3)   :: s
-    INTEGER,      DIMENSION(1)   :: dummy 
+    INTEGER,      DIMENSION(1)   :: dummy
     REAL(KIND=8)                 :: scal1, scal2, diam=0.d0, eps_diam
     INTEGER                      :: j, jp
 
@@ -360,7 +360,7 @@ CONTAINS
 
     d = r_goal - r_old
 
-    DO j = 1, 3 
+    DO j = 1, 3
        scal1 = pd_scal(n(:,j), d)
        jp = MODULO(j,3) + 1
        scal2 = pd_scal(n(:,j), rv(:,jp) - r_old)
@@ -398,7 +398,7 @@ CONTAINS
 
     dummy = MINLOC(s)
     !TEST
-    !write(*,*) 'i On sort par la face ', dummy(1) 
+    !write(*,*) 'i On sort par la face ', dummy(1)
     !TEST
 
     IF (s(dummy(1)) == 1.d20) THEN
@@ -428,7 +428,7 @@ CONTAINS
     IF (m_next==0) THEN
        WRITE(*,*) ' BUG: Algorithm tries to get out of the domain'
        WRITE(*,*) ' I assume the boundary is curved and proceed, is that okay?'
-       m_next = m_old  ! We stay here 
+       m_next = m_old  ! We stay here
        write(*,*) ' rv(1) ', rv(:,1)
        write(*,*) ' rv(2) ', rv(:,2)
        write(*,*) ' rv(3) ', rv(:,3)
@@ -446,7 +446,7 @@ CONTAINS
     END DO
 
 
-    WRITE(*,*) ' BUG : face_next pas trouv''e', m_next, m_old  
+    WRITE(*,*) ' BUG : face_next pas trouv''e', m_next, m_old
     WRITE(*,*) ' neigh(:,m_old) ',mesh%neigh(:,m_old)
     WRITE(*,*) ' neigh(:,m_next) ',mesh%neigh(:,m_next)
     WRITE(*,*) ' l''arete par laquelle on sort ', dummy(1)
@@ -457,7 +457,7 @@ CONTAINS
     WRITE(*,*) inside(mesh,m_old,r_goal)
     WRITE(*,*)pd_scal(pd_vect(rv(:,3)-rv(:,2)),r_goal-rv(:,2))
     WRITE(*,*)pd_scal(pd_vect(rv(:,1)-rv(:,3)),r_goal-rv(:,3))
-    WRITE(*,*)pd_scal(pd_vect(rv(:,2)-rv(:,1)),r_goal-rv(:,1)) 
+    WRITE(*,*)pd_scal(pd_vect(rv(:,2)-rv(:,1)),r_goal-rv(:,1))
 
     WRITE(*,*) r_old
     WRITE(*,*) inside(mesh,m_old,r_old)
@@ -489,7 +489,7 @@ CONTAINS
   END SUBROUTINE find_next
 
 
-  FUNCTION inside(mesh,m,r) 
+  FUNCTION inside(mesh,m,r)
     USE def_type_mesh
     IMPLICIT NONE
     TYPE(mesh_type)                        :: mesh
@@ -498,7 +498,7 @@ CONTAINS
 
     LOGICAL                    :: inside
     REAL(KIND=8), DIMENSION(2) :: r1, r2, r3, &
-         n1, n2, n3 
+         n1, n2, n3
     REAL(KIND=8) :: eps_ref=0.d0, s1, s2, s3, epsilon=-1.d-12
     r1 = mesh%rr(:,mesh%jj(1,m))
     r2 = mesh%rr(:,mesh%jj(2,m))
@@ -518,7 +518,7 @@ CONTAINS
     s3 = pd_scal(n3, r - r1)
     !IF (s3 < eps_ref ) RETURN
 
-    IF (MIN(s1,s2,s3)<epsilon) RETURN 
+    IF (MIN(s1,s2,s3)<epsilon) RETURN
     inside = .TRUE.
 
   END FUNCTION inside

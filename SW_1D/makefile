@@ -55,7 +55,7 @@ fem_sparsekit.o:$(ROOT)/FEMSUB_OBJET/fem_sparsekit.f90 associate_gauss.o def_typ
 associate_gauss.o:$(ROOT)/FEMSUB_OBJET/associate_gauss.f90 def_type_mesh.o
 	$(F90) -c  $(ROOT)/FEMSUB_OBJET/associate_gauss.f90
 
-condlim.o:./condlim.f90 read_data.o mesh.o fem_tn.o space_dim.o
+condlim.o:./condlim.f90 read_data.o mesh.o fem_tn.o space_dim.o def_type_mesh.o
 	$(F90) -c  ./condlim.f90
 
 fem_tn.o:$(ROOT)/FEMSUB_OBJET/fem_tn.f90 associate_gauss.o

@@ -3,7 +3,7 @@
 ===Name of mesh file===
 rectangle.FEM
 ===Test case number===
-14
+13
 ===Final time===
 4.0
 ===CFL number===
@@ -28,6 +28,14 @@ rectangle.FEM
 0
 ===List of Dirichlet boundaries for uy?===
 1 2
+===How many Dirichlet boundaries for heta?===
+2
+===List of Dirichlet boundaries for heta?===
+1 3
+===How many Dirichlet boundaries for hw?===
+0
+===List of Dirichlet boundaries for hw?===
+1 3
 ===Number of subdomains in the mesh===
 1
 ===List of subdomain in the mesh===

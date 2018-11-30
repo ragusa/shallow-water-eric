@@ -21,10 +21,10 @@ sleep .5
 sed -i "/^mesh/c\mesh_1600.FEM" $file_in 
 sleep .5
 nohup $run > lis_1600 &  
-sleep .5
-sed -i "/^mesh/c\mesh_3200.FEM" $file_in 
-sleep .5
-nohup $run > lis_3200 & 
+#sleep .5
+#sed -i "/^mesh/c\mesh_3200.FEM" $file_in 
+#sleep .5
+#nohup $run > lis_3200 & 
 #sleep .5
 #sed -i "/^mesh/c\mesh_6400.FEM" $file_in 
 #sleep .5

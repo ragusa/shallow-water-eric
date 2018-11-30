@@ -1539,7 +1539,7 @@ CONTAINS
       READ(30,*) bath_old
       bath = bath_old(new_to_old)
       CLOSE(30)
-      ! here we smooth the bathymetry using a discrete laplacian 
+      ! here we smooth the bathymetry using a discrete laplacian
       bath_old = bath
       CALL apply_smoothing(bath_old,bath)
       bath_old = bath

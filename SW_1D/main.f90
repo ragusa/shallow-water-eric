@@ -14,7 +14,7 @@ PROGRAM shallow_water
   REAL(KIND=8)                              :: tps, to, q1=0.d0, q2, q3, dt_frame, t_frame=0.d0
   REAL(KIND=8)                              :: hmax0, norm, dt0
   INTEGER :: nb_frame=0, i, n
-  CHARACTER(LEN=200) :: header
+  CHARACTER(LEN=200) :: header, test_name, test_int
   CHARACTER(LEN=3)   :: frame
   LOGICAL :: once=.TRUE.
 
@@ -61,7 +61,7 @@ PROGRAM shallow_water
   !DO it = 1, it_max
   DO WHILE(inputs%time<inputs%Tfinal)
      CALL COMPUTE_DT(un)
-     write(*,*) 'time ', inputs%time, inputs%dt,' Mass1', SUM(un(1,:)*lumped)
+     !write(*,*) 'time ', inputs%time, inputs%dt,' Mass1', SUM(un(1,:)*lumped)
      !IF (inputs%dt<0.01*dt0) THEN
      !   WRITE(*,*) ' Time step decresases too much'
      !   STOP
@@ -106,6 +106,44 @@ PROGRAM shallow_water
         once=.FALSE.
      END IF
 
+     SELECT CASE(inputs%type_test) !seawall gauges
+     CASE(16)
+        IF (inputs%time.LE.inputs%dt) THEN
+           DO n = 1, 7
+              OPEN(60+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
+              ! WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
+              ! WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
+              !WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+              !WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+           END DO
+        END IF
+        DO n = 1, 7
+           WRITE(60+n,*) inputs%time, &
+                SUM(un(1,mesh%jj(:,seawall_m(n))) &
+                * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n))), &
+                SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
+                * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n)))
+        END DO
+      CASE(17)
+         IF (inputs%time.LE.inputs%dt) THEN
+            DO n = 1, 8
+               OPEN(70+n,FILE=TRIM(ADJUSTL(bar_file(n))), FORM='formatted')
+               ! WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
+               ! WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
+               !WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+               !WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+            END DO
+         END IF
+         DO n = 1, 8
+           ! convert data to centimeters
+            WRITE(70+n,*) inputs%time, &
+                 100.d0 * SUM(un(1,mesh%jj(:,bar_m(n))) &
+                 * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n))), &
+                 100.d0 * SUM((un(1,mesh%jj(:,bar_m(n)))+ bath(mesh%jj(:,bar_m(n)))) &
+                 * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n)))
+         END DO
+     END SELECT
+
   END DO
   tps = user_time() - tps
   WRITE(*,*) 'total time', tps, 'Time per time step and dof', tps/(it_max*mesh%np), it_max
@@ -127,6 +165,22 @@ PROGRAM shallow_water
   CALL plot_1d(mesh%rr(1,:), un(4,:), 'h_w.plt')
   CALL plot_1d(mesh%rr(1,:), un(1,:)*velocity(1,:)**2/2, 'rho_e.plt')
   CALL plot_1d(mesh%rr(1,:), un(2,:)-sol_anal(2,mesh%rr,inputs%time), 'errqx.plt')
+
+
+  SELECT CASE(inputs%type_test)
+  CASE(14)
+    !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
+    write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
+    write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
+    CALL SYSTEM('./gnu_plot_runup.sh '//TRIM(test_name)//' '//TRIM(test_int))
+  CASE(16)
+  !   !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
+  !   write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
+  !   write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
+  CALL SYSTEM('gnuplot -persist -p seawall.gnu')
+  ! CASE(17)
+  ! CALL SYSTEM('gnuplot -persist -p bar.gnu')
+  END SELECT
 CONTAINS
 
   SUBROUTINE COMPUTE_DT(u0)
@@ -167,6 +221,18 @@ CONTAINS
     REAL(KIND=8), DIMENSION(mesh%gauss%l_G*mesh%me)  :: uexact
     REAL(KIND=8), DIMENSION(mesh%np)                 :: zero
     REAL(KIND=8) :: err, errb, norm, normb, waterh_ref = 0.d0
+
+    IF (inputs%if_FGN) THEN
+     norm  = SUM(mesh%gauss%rj)
+     CALL ns_l1 (mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
+     WRITE(*,*) ' L1-norm (h^2-heta)/max_waterh**2', (err/norm)/inputs%max_water_h**2
+     CALL ns_0(mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
+     WRITE(*,*) ' L2-norm (h^2-heta)/max_waterh**2', (err/sqrt(norm))/inputs%max_water_h**2
+     WRITE(*,*) ' Linfty  (h^2-heta)/max_waterh**2', &
+          MAXVAL(ABS(un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2)
+     CALL plot_1d(mesh%rr(1,:), (un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2, 'err_h2_heta.plt')
+    END IF
+
     SELECT CASE(inputs%type_test)
     CASE(3,4,5,6,7,11,12,13,15)
        IF (inputs%type_test==13) THEN

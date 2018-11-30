@@ -1,4 +1,5 @@
 *.vtk
+*.plt
 SOURCES/make.inc
 SOURCES/my_make_template
 SOURCES/makefile

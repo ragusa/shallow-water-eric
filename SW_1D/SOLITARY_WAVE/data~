@@ -3,7 +3,7 @@
 ===Name of mesh file===
 mesh.FEM
 ===Test case number===
-15
+13
 ===FGN?===(.t.,.f.),okay===
 .t.
 ===Lambda_bar?===
@@ -24,13 +24,13 @@ mesh.FEM
 ===Lumping the mass matrix? (true/false)===
 .t.
 ===How many Dirichlet boundaries for h?===
-1
+2
 ===List of Dirichlet boundaries for h?===
-2 
+1 2 
 ===How many Dirichlet boundaries for ux?===
-1
+2
 ===List of Dirichlet boundaries for ux?===
-1 
+2 1 
 ===Number of subdomains in the mesh===
 1
 ===List of subdomain in the mesh===

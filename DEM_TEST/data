@@ -7,7 +7,7 @@ port_isabel_mesh.FEM
 ===Final time===
 1.0
 ===CFL number===
-0.0005d0
+0.2d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 ===Type of first-order viscosity===

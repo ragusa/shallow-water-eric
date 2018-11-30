@@ -18,10 +18,10 @@
 #
 #  List the vertices by index, x, y, and boundary marker.
 #
-1 -35.00000 0.00000
-2 12.00000 0.00000
-3 12.0000 1.00000
-4 -35.00000 1.00000
+1 aa cc
+2 bb cc
+3 bb dd
+4 aa dd
 
 #  Declare the number of segments and the number of boundary markers.
 #

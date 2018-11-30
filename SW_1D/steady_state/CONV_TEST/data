@@ -1,7 +1,7 @@
 ===Name of directory for mesh file===
 '.'
 ===Name of mesh file===
-mesh_100.FEM
+mesh_1600.FEM
 ===Test case number===
 15
 ===FGN?===(.t.,.f.),okay===

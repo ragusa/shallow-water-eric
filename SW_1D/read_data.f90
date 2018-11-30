@@ -13,7 +13,7 @@ MODULE input_data
      CHARACTER(LEN=15)              :: viscosity_type
      LOGICAL                        :: if_lumped
      LOGICAL                        :: if_alpha_limit
-     LOGICAL                        :: if_FGN
+     LOGICAL                        :: if_FGN, if_FGN_update
      CHARACTER(LEN=3)               :: limiter_type
      INTEGER                        :: type_test
      REAL(KIND=8)                   :: dt, time
@@ -44,9 +44,9 @@ CONTAINS
     INTEGER, PARAMETER           :: in_unit=21
     CHARACTER(len=*), INTENT(IN) :: data_fichier
     LOGICAL :: okay
-    inputs%epsilon_pminus   =-1.d-13 !Fct
+    inputs%epsilon_pminus   =-1.d-10 !Fct
     inputs%epsilon_htiny    = 1.d-10 !htiny
-    inputs%epsilon_limit    = 1.d-0  !limiter + limit alpha
+    inputs%epsilon_limit    = 1.d-10  !limiter + limit alpha
     inputs%epsilon_regul_h  = 1.d-10 !Velocity
     OPEN(UNIT = in_unit, FILE = data_fichier, FORM = 'formatted', STATUS = 'unknown')
     CALL read_until(in_unit, "===Name of directory for mesh file===")
@@ -122,10 +122,16 @@ CONTAINS
        inputs%if_FGN = .FALSE.
        inputs%lambda_bar = 0.d0
     END IF
+    CALL find_string(in_unit, "===run old FGN update?===(.t.,.f.),okay===",okay)
+    IF (okay) THEN
+       READ (in_unit,*)  inputs%if_FGN_update
+    ELSE
+       inputs%if_FGN_update = .FALSE.
+    END IF
 
 
     SELECT CASE(inputs%type_test)
-    CASE(9,12) 
+    CASE(9,12,14,16)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
     CASE(10)

@@ -503,76 +503,6 @@ CONTAINS
     END DO
   END SUBROUTINE rain
 
-  SUBROUTINE mSGN_RHS(un,rk)
-    USE mesh_handling
-    USE boundary_conditions
-    IMPLICIT NONE
-    !REAL(KIND=8), INTENT(OUT) :: avgMeshSize
-    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
-    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
-    REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, localMeshSize, paper_constant, &
-                                        h, hw, heta,eta, hetaSource, eta_over_h, ratio, &
-                                        hSqd_GammaP, heta_GammaP, alpha
-    REAL(KIND=8) :: x0
-    INTEGER :: d, i, j, k, p, n
-
-    ! define everything for all points here
-    h = un(1,:)
-    heta = un(inputs%syst_size-1,:)
-    eta = un(inputs%syst_size-1,:) * compute_one_over_h(un(1,:))
-    eta_over_h = un(inputs%syst_size-1,:) * compute_one_over_h(un(1,:))**2
-    hw = un(inputs%syst_size,:)
-    ratio =  2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny)
-
-    IF (MINVAL(eta)<-1.d-14*inputs%max_water_h) THEN
-      !WRITE(*,*) 'eta negative', MINVAL(eta)
-      !STOP
-    END IF
-
-    DO n = 1,mesh%np
-      localMeshSize(n) = SQRT(lumped(n))
-      alpha(n) = inputs%lambdaSGN/(3.d0*localMeshSize(n))
-      paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(localMeshSize(n))
-    END DO
-
-      ! this is stuff for pTilde and source terms
-      DO i = 1, mesh%np
-        x0 =  min(2.d0,SQRT(1.d0+1.d0/(2*alpha(i)*(max(eta(i),0.d0)+inputs%htiny))))
-        IF (eta(i) .LE. 0.d0) THEN
-          pTilde(i) = 0.d0
-          hSqd_GammaP(i) = 0.d0
-          heta_GammaP(i) = 0.d0
-        ELSE IF (eta(i).LE.x0*h(i)) THEN
-          pTilde(i) = -alpha(i)*inputs%gravity*eta(i)*(eta(i)**2-h(i)**2)
-          hSqd_GammaP(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
-          heta_GammaP(i) = 3*eta(i)**2*eta_over_h(i)+un(inputs%syst_size-1,i)-4*eta(i)**2
-        ELSE
-          pTilde(i) = -alpha(i)*inputs%gravity*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
-          hSqd_GammaP(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
-          heta_GammaP(i) = 4*(x0-1.d0)*eta(i)**2 + (1-x0**2)*un(inputs%syst_size-1,i)
-        END IF
-      END DO
-
-    DO i = 1, mesh%np
-       ! update momentum equations here
-       DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
-          j = cij(1)%ja(p)
-            DO k = 1, k_dim
-               rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
-            END DO
-       END DO
-       !update heta equation with source term
-       DO k = inputs%syst_size - 1, inputs%syst_size - 1
-           rk(k,i) = rk(k,i) + lumped(i)*hw(i)*ratio(i)**3
-       END DO
-       !update hw equation with source term
-       DO k = inputs%syst_size, inputs%syst_size
-             rk(k,i) = rk(k,i) - paper_constant(i)*lumped(i)*hSqd_GammaP(i)*ratio(i)**3
-       END DO
-
-    END DO
-  END SUBROUTINE mSGN_RHS
-
 
   SUBROUTINE smb_2_roundoff(un,rk)
     USE mesh_handling
@@ -642,14 +572,14 @@ CONTAINS
      CASE(12)
        CALL coriolis(un,rk) ! (Eric T.)
      CASE(13,15,17,18,19,20)
-       CALL mSGN_RHS(un,rk)
+       CALL FGN_rhs(un,rk)
      CASE(8,14,16)
-       CALL mSGN_RHS(un,rk)
+       CALL FGN_rhs(un,rk)
        CALL friction(un,rk)
      CASE(21)
-       CALL mSGN_RHS(un,rk)
+       CALL FGN_rhs(un,rk)
        CALL friction(un,rk)
-       CALL rain(un,rk)
+       !CALL rain(un,rk)
     END SELECT
   END SUBROUTINE smb_2_roundoff
 
@@ -706,14 +636,14 @@ CONTAINS
      CASE(12)
        CALL coriolis(un,rk) ! (Eric T.)
      CASE(13,15,17,18,19,20)
-       CALL mSGN_RHS(un,rk)
+       CALL FGN_rhs(un,rk)
      CASE(8,14,16)
-       CALL mSGN_RHS(un,rk)
+       CALL FGN_rhs(un,rk)
        CALL friction(un,rk)
      CASE(21)
-       CALL mSGN_RHS(un,rk)
+       CALL FGN_rhs(un,rk)
        CALL friction(un,rk)
-       CALL rain(un,rk)
+       !CALL rain(un,rk)
 
     END SELECT
   END SUBROUTINE smb_2
@@ -991,5 +921,152 @@ SUBROUTINE smoothing(un,un_new)
     END DO
   END DO
 END SUBROUTINE smoothing
+
+SUBROUTINE mSGN_RHS(un,rk)
+  USE mesh_handling
+  USE boundary_conditions
+  IMPLICIT NONE
+  !REAL(KIND=8), INTENT(OUT) :: avgMeshSize
+  REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
+  REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
+  REAL(KIND=8), DIMENSION(mesh%np) :: s, psi, pTilde, localMeshSize, paper_constant, &
+                                      h, hw, heta,eta, hetaSource, eta_over_h, ratio, &
+                                      hSqd_GammaP, heta_GammaP, alpha
+  REAL(KIND=8) :: x0
+  INTEGER :: d, i, j, k, p, n
+
+  ! define everything for all points here
+  h = un(1,:)
+  heta = un(inputs%syst_size-1,:)
+  eta = un(inputs%syst_size-1,:) * compute_one_over_h(un(1,:))
+  eta_over_h = un(inputs%syst_size-1,:) * compute_one_over_h(un(1,:))**2
+  hw = un(inputs%syst_size,:)
+  ratio =  2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny)
+
+  IF (MINVAL(eta)<-1.d-14*inputs%max_water_h) THEN
+    !WRITE(*,*) 'eta negative', MINVAL(eta)
+    !STOP
+  END IF
+
+  DO n = 1,mesh%np
+    localMeshSize(n) = SQRT(lumped(n))
+    alpha(n) = inputs%lambdaSGN/(3.d0*localMeshSize(n))
+    paper_constant(n) = (inputs%lambdaSGN * inputs%gravity)/(localMeshSize(n))
+  END DO
+
+    ! this is stuff for pTilde and source terms
+    DO i = 1, mesh%np
+      x0 =  min(2.d0,SQRT(1.d0+1.d0/(2*alpha(i)*(max(eta(i),0.d0)+inputs%htiny))))
+      IF (eta(i) .LE. 0.d0) THEN
+        pTilde(i) = 0.d0
+        hSqd_GammaP(i) = 0.d0
+        heta_GammaP(i) = 0.d0
+      ELSE IF (eta(i).LE.x0*h(i)) THEN
+        pTilde(i) = -alpha(i)*inputs%gravity*eta(i)*(eta(i)**2-h(i)**2)
+        hSqd_GammaP(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
+        heta_GammaP(i) = 3*eta(i)**2*eta_over_h(i)+un(inputs%syst_size-1,i)-4*eta(i)**2
+      ELSE
+        pTilde(i) = -alpha(i)*inputs%gravity*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
+        hSqd_GammaP(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
+        heta_GammaP(i) = 4*(x0-1.d0)*eta(i)**2 + (1-x0**2)*un(inputs%syst_size-1,i)
+      END IF
+    END DO
+
+  DO i = 1, mesh%np
+     ! update momentum equations here
+     DO p = cij(1)%ia(i), cij(1)%ia(i+1) - 1
+        j = cij(1)%ja(p)
+          DO k = 1, k_dim
+             rk(k+1,i) = rk(k+1,i) - pTilde(j)*cij(k)%aa(p)
+          END DO
+     END DO
+     !update heta equation with source term
+     DO k = inputs%syst_size - 1, inputs%syst_size - 1
+         rk(k,i) = rk(k,i) + lumped(i)*hw(i)*ratio(i)**3
+     END DO
+     !update hw equation with source term
+     DO k = inputs%syst_size, inputs%syst_size
+           rk(k,i) = rk(k,i) - paper_constant(i)*lumped(i)*hSqd_GammaP(i)*ratio(i)**3
+     END DO
+
+  END DO
+END SUBROUTINE mSGN_RHS
+
+SUBROUTINE FGN_rhs(un,rk)
+ USE mesh_handling
+ USE boundary_conditions
+ IMPLICIT NONE
+ REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
+ REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
+ REAL(KIND=8), DIMENSION(mesh%np)  :: lambda_bar,  eta, omega, &
+      htwo_Gammap, pp, alpha, eta_over_h, heta_gammap, h, ratio
+ REAL(KIND=8) :: mineta, x0
+ INTEGER :: i, j, k, p
+
+ h  = un(1,:)
+ eta = un(inputs%syst_size-1,:)*compute_one_over_h(un(1,:))
+ !RATIO 1 works best in max norm.
+ ratio = 1 !(2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny))
+ !IF (MINVAL(eta)<-1.d-14*inputs%max_water_h) THEN
+    !WRITE(*,*) 'eta negative', MINVAL(eta)
+    !STOP
+ !END IF
+
+ !alpha = inputs%lambdaSGN/(3*lumped) !1D
+ alpha = inputs%lambdaSGN/(3*SQRT(lumped))
+
+ DO i = 1, mesh%np
+    !NEW
+    !x0 = MIN(2.d0,(1.5d0+1/(4*alpha(i)*MAX(h(i),inputs%htiny)))**(1.d0/3.d0))
+    !NEW
+    !x0 =  max(2.d0,SQRT(1.d0+1.d0/(2*alpha(i)*(max(eta(i),0.d0)+inputs%htiny))))
+    !IF (eta(i).GE.1.5d0*h(i)) THEN
+    !   write(*,*) ' threshold 3/2', eta(i),h(i)
+    !end if
+    IF (eta(i).LE.1.d0) THEN
+       pp(i) = -alpha(i)*inputs%gravity*2*6*h(i)*(un(inputs%syst_size-1,i)-h(i)**2)
+       htwo_Gammap(i) = 6*(un(inputs%syst_size-1,i)-h(i)**2)
+    ELSE !IF (eta(i).LE.x0*h(i)) THEN
+       !NEW
+       pp(i) = -alpha(i)*inputs%gravity*2*(eta(i)**3-h(i)**3)
+       htwo_Gammap(i) = 6*(eta(i)**2-un(inputs%syst_size-1,i))
+       !NEW
+       !pp(i) = -alpha(i)*inputs%gravity*eta(i)*(eta(i)**2-h(i)**2)
+       !htwo_Gammap(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
+    !ELSE
+       !NEW
+       !pp(i) = -alpha(i)*inputs%gravity*2*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
+       !htwo_Gammap(i) = (8*x0-6.d0)*un(inputs%syst_size-1,i)-2*x0**2*h(i)**2
+       !NEW
+       !pp(i) = -alpha(i)*inputs%gravity*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
+       !htwo_Gammap(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
+    END IF
+    !THIS WORKS (but hyperbolicity is lost)
+    !pp(i) = -alpha(i)*inputs%gravity*2*6*h(i)*(un(inputs%syst_size-1,i)-h(i)**2)
+    !htwo_Gammap(i) = 6*(un(inputs%syst_size-1,i)-h(i)**2)
+    !THIS DOES NOT WORK
+    !THIS DOES NOT WORK pp(i) = -alpha(i)*inputs%gravity*2*(eta(i)**3-h(i)**3)
+    !THIS DOES NOT WORK htwo_Gammap(i) = 6*(eta(i)**2-un(inputs%syst_size-1,i))
+ END DO
+
+
+ IF (k_dim==1) THEN
+    lambda_bar = inputs%lambdaSGN*inputs%gravity/lumped
+ ELSE
+    lambda_bar = inputs%lambdaSGN*inputs%gravity/SQRT(lumped)
+ END IF
+
+ DO i = 1, mesh%np
+    rk(inputs%syst_size-1,i) = rk(inputs%syst_size-1,i) + lumped(i)*un(inputs%syst_size,i)*ratio(i)
+    rk(inputs%syst_size,i)   = rk(inputs%syst_size,i)   - lumped(i)*lambda_bar(i)*htwo_Gammap(i)*ratio(i)
+    DO p = mass%ia(i), mass%ia(i+1) - 1
+       j = mass%ja(p)
+       DO k = 1, k_dim
+          rk(k+1,i) = rk(k+1,i) - pp(j)*cij(k)%aa(p)
+       END DO
+    END DO
+ END DO
+
+END SUBROUTINE FGN_rhs
 
 END MODULE update
