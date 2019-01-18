@@ -4,3 +4,6 @@ SOURCES/make.inc
 SOURCES/my_make_template
 SOURCES/makefile
 *.o
+*.mp4
+*.eps
+*.png
