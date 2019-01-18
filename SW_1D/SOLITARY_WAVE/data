@@ -6,12 +6,14 @@ mesh.FEM
 13
 ===FGN?===(.t.,.f.),okay===
 .t.
+===run old FGN update?===(.t.,.f.),okay===
+.f.
 ===Lambda_bar?===
 1.d0
 ===Final time===
 50
 ===CFL number===
-.5d0
+.2d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 'fct'

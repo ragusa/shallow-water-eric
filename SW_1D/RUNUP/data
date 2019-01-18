@@ -8,12 +8,14 @@ mesh.FEM
 .t.
 ===run old FGN update?===(.t.,.f.),okay===
 .f.
+===Want movie?===(.t.,.f.),okay===
+.t.
 ===Lambda_bar?===
 1.d0
 ===Final time===
 10.
 ===CFL number===
-.2d0
+.05d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 'fct'
@@ -24,7 +26,7 @@ mesh.FEM
 ===Alpha limitation? (True/False)===
 .t.
 ===Lumping the mass matrix? (true/false)===
-.f.
+.t.
 ===How many Dirichlet boundaries for h?===
 0
 ===List of Dirichlet boundaries for h?===
@@ -40,4 +42,4 @@ mesh.FEM
 ===Type of finite element===
 1
 ===Mannings coefficient===
-0.014
+0.016

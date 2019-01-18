@@ -26,7 +26,7 @@ PROGRAM shallow_water
   !END IF
   SELECT CASE(inputs%type_test)
   CASE(8,13,14,15,16,17,18,19,20,21)
-    inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
+     inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
   END SELECT
 
 
@@ -36,15 +36,15 @@ PROGRAM shallow_water
   CALL init(un)
   hmax0 = MAXVAL(un(1,:))
   IF (k_dim==1) THEN
-    CALL plot_1d(mesh%rr(1,:), bath, 'bath.plt')
-    CALL plot_1d(mesh%rr(1,:), un(1,:), 'hinit.plt')
-    CALL plot_1d(mesh%rr(1,:), un(1,:)+bath, 'hpluszinit.plt')
-    CALL plot_1d(mesh%rr(1,:), un(2,:), 'huinit.plt')
-    CALL plot_1d(mesh%rr(1,:), un(3,:), 'hetainit.plt')
-    CALL plot_1d(mesh%rr(1,:), un(4,:), 'hwinit.plt')
+     CALL plot_1d(mesh%rr(1,:), bath, 'bath.plt')
+     CALL plot_1d(mesh%rr(1,:), un(1,:), 'hinit.plt')
+     CALL plot_1d(mesh%rr(1,:), un(1,:)+bath, 'hpluszinit.plt')
+     CALL plot_1d(mesh%rr(1,:), un(2,:), 'huinit.plt')
+     CALL plot_1d(mesh%rr(1,:), un(3,:), 'hetainit.plt')
+     CALL plot_1d(mesh%rr(1,:), un(4,:), 'hwinit.plt')
   ELSE
-    CALL plot_scalar_field(mesh%jj, mesh%rr, bath, 'bath.plt')
-    CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'hinit.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, bath, 'bath.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'hinit.plt')
   END IF
   ! IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
   ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(4,:), 'h_eta_init.plt')
@@ -55,12 +55,12 @@ PROGRAM shallow_water
 
   SELECT CASE(inputs%type_test)
   CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20,21)
-    dt_frame = inputs%Tfinal/(nb_frame-1)
-    CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
+     dt_frame = inputs%Tfinal/(nb_frame-1)
+     CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
   END SELECT
   ! output exact solution at Tfinal for soliton with flat bath
   IF (inputs%type_test==13 .OR. inputs%type_test==20) THEN
-    CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
+     CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
   END IF
   ! for initial time
   CALL vtk_2d(mesh, sol_anal(1,mesh%rr,0.d0),51,'h_init.vtk')
@@ -81,7 +81,7 @@ PROGRAM shallow_water
   !DO it = 1, it_max
   counter = 0
   DO WHILE(inputs%time<inputs%Tfinal)
-    counter = counter + 1
+     counter = counter + 1
      !===Paraboloid seems to work with inputs%htiny=1d-4
      !inputs%htiny=aspect_ratio*inputs%gravity*inputs%dt**2/2
      !inputs%htiny = 10*aspect_ratio**2*MINVAL(lumped)/max_water_h
@@ -112,14 +112,14 @@ PROGRAM shallow_water
      un = (uo+ 2*ui)/3
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
      inputs%time = to + inputs%dt
-     write(*,*) 'time ', inputs%time, inputs%dt
-     !!!! outputing time steps to file!!!!
+     WRITE(*,*) 'time ', inputs%time, inputs%dt
+!!!! outputing time steps to file!!!!
      IF (inputs%lambdaSGN > 0.d0) THEN
-       open (unit = 7, file = "time_steps_GN.txt")
-       write (7,*) inputs%dt
+        OPEN (unit = 7, file = "time_steps_GN.txt")
+        WRITE (7,*) inputs%dt
      ELSE
-       open (unit = 7, file = "time_steps_SW.txt")
-       write (7,*) inputs%dt
+        OPEN (unit = 7, file = "time_steps_SW.txt")
+        WRITE (7,*) inputs%dt
      END IF
 
      SELECT CASE(inputs%type_test)
@@ -176,41 +176,41 @@ PROGRAM shallow_water
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
                     IF (inputs%lambdaSGN > 0.d0) THEN
-                      hetamovie(i) = -1.d-7*hmax0+bath(i)
+                       hetamovie(i) = -1.d-7*hmax0+bath(i)
                     END IF
                  ELSE
                     hmovie(i) = un(1,i)+bath(i)
                     IF (inputs%lambdaSGN > 0.d0) THEN
-                      hetamovie(i) = un(4,i)+bath(i)
+                       hetamovie(i) = un(4,i)+bath(i)
                     END IF
                  END IF
               END DO
 
               WRITE(frame,'(I3)') kit
-              header = 'hpz_'//trim(adjustl(frame))//'.vtk'
-              etaHeader = 'hetapz_'//trim(adjustl(frame))//'.vtk'
+              header = 'hpz_'//TRIM(ADJUSTL(frame))//'.vtk'
+              etaHeader = 'hetapz_'//TRIM(ADJUSTL(frame))//'.vtk'
               CALL vtk_2d(mesh,hetamovie,13,etaHeader)
               CALL vtk_2d(mesh, hmovie, 10, header)
-              header = 'h_'//trim(adjustl(frame))//'.vtk'
-              etaHeader='heta_'//trim(adjustl(frame))//'.vtk'
+              header = 'h_'//TRIM(ADJUSTL(frame))//'.vtk'
+              etaHeader='heta_'//TRIM(ADJUSTL(frame))//'.vtk'
 
               DO i = 1, SIZE(bath)
                  IF (un(1,i).LE. 1.d-4*hmax0) THEN
                     hmovie(i) = 0.d0
                     IF (inputs%lambdaSGN > 0.d0) THEN
-                      hetamovie(i) = 0.d0
+                       hetamovie(i) = 0.d0
                     END IF
                  ELSE
                     hmovie(i) = un(1,i)
                     IF (inputs%lambdaSGN > 0.d0) THEN
-                      hetamovie(i) = un(4,i)
+                       hetamovie(i) = un(4,i)
                     END IF
                  END IF
-              !hetamovie = un(4,:)
+                 !hetamovie = un(4,:)
               END DO
               CALL vtk_2d(mesh, hmovie, 10, header)
               IF (inputs%lambdaSGN > 0.d0) THEN
-                CALL vtk_2d(mesh,hetamovie,13,etaHeader)
+                 CALL vtk_2d(mesh,hetamovie,13,etaHeader)
               END IF
               !CALL plot_scalar_field(mesh%jj, mesh%rr, hmovie, 'h_'//trim(adjustl(frame))//'.plt')
            END IF
@@ -231,9 +231,9 @@ PROGRAM shallow_water
   !WRITE(*,*) 'Number of elemets', mesh%me
   WRITE(*,*) 'Number of nodes  ', mesh%np
   IF (inputs%lambdaSGN > 0.d0) THEN
-    WRITE(*,*) 'You ran dispersive model.'
+     WRITE(*,*) 'You ran dispersive model.'
   ELSE
-    WRITE(*,*) 'You ran shallow water model.'
+     WRITE(*,*) 'You ran shallow water model.'
   END IF
 
   CALL compute_errors
@@ -268,8 +268,8 @@ CONTAINS
     ! we add boundary conditions to heta and hw
     SELECT CASE(inputs%type_test)
     CASE(5,8,9,11,12,13,14,15,16,17,18,19,20,21)
-      IF (SIZE(heta_js_D).NE.0) uu(4,heta_js_D) = sol_anal(4,mesh%rr(:,heta_js_D),t)
-      IF (SIZE(hw_js_D).NE.0) uu(5,hw_js_D) = sol_anal(5,mesh%rr(:,hw_js_D),t)
+       IF (SIZE(heta_js_D).NE.0) uu(4,heta_js_D) = sol_anal(4,mesh%rr(:,heta_js_D),t)
+       IF (SIZE(hw_js_D).NE.0) uu(5,hw_js_D) = sol_anal(5,mesh%rr(:,hw_js_D),t)
     END SELECT
   END SUBROUTINE bdy
 

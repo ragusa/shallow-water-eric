@@ -6,6 +6,8 @@ mesh.FEM
 13
 ===FGN?===(.t.,.f.),okay===
 .t.
+===run old FGN update?===(.t.,.f.),okay===
+.f.
 ===Lambda_bar?===
 1.d0
 ===Final time===

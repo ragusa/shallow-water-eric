@@ -8,12 +8,14 @@ mesh.FEM
 .t.
 ===run old FGN update?===(.t.,.f.),okay===
 .f.
+===Want movie?===(.t.,.f.),okay===
+.t.
 ===Lambda_bar?===
 1.d0
 ===Final time===
 10.
 ===CFL number===
-.2d0
+.06d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 'fct'
@@ -40,4 +42,4 @@ mesh.FEM
 ===Type of finite element===
 1
 ===Mannings coefficient===
-0.014
+0.016

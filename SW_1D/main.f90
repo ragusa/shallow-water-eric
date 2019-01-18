@@ -13,7 +13,7 @@ PROGRAM shallow_water
   INTEGER                                   :: it, it_max, kit=0
   REAL(KIND=8)                              :: tps, to, q1=0.d0, q2, q3, dt_frame, t_frame=0.d0
   REAL(KIND=8)                              :: hmax0, norm, dt0
-  INTEGER :: nb_frame=0, i, n
+  INTEGER :: nb_frame=199, i, n
   CHARACTER(LEN=200) :: header, test_name, test_int
   CHARACTER(LEN=3)   :: frame
   LOGICAL :: once=.TRUE.
@@ -43,9 +43,10 @@ PROGRAM shallow_water
   CALL plot_1d(mesh%rr(1,:), sol_anal(1,mesh%rr,inputs%Tfinal) + bath, 'hPz_exact.plt')
   CALL COMPUTE_DT(un)
 
-  nb_frame=10
-  dt_frame = 1.d10
-  t_frame = 1.d10
+  !nb_frame=10
+  ! dt_frame = 1.d10
+  ! t_frame = 1.d10
+  dt_frame = inputs%Tfinal/(nb_frame-1)
 
   WRITE(*,*) ' Mass1', SUM(un(1,:)*lumped)
 
@@ -74,7 +75,6 @@ PROGRAM shallow_water
      write(*,*) 'time ', inputs%time, inputs%dt, ' Mass2', SUM(uo(1,:)*lumped), SUM(un(1,:)*lumped)
      !if (ABS(SUM(uo(1,:)*lumped)-SUM(un(1,:)*lumped))/SUM(uo(1,:)*lumped).ge.1d-7) STOP
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
-
      !===Step 2
      inputs%time=to+inputs%dt
      CALL euler(un,ui) !t+dt
@@ -111,10 +111,6 @@ PROGRAM shallow_water
         IF (inputs%time.LE.inputs%dt) THEN
            DO n = 1, 7
               OPEN(60+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
-              ! WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
-              ! WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
-              !WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
-              !WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
            END DO
         END IF
         DO n = 1, 7
@@ -128,10 +124,6 @@ PROGRAM shallow_water
          IF (inputs%time.LE.inputs%dt) THEN
             DO n = 1, 8
                OPEN(70+n,FILE=TRIM(ADJUSTL(bar_file(n))), FORM='formatted')
-               ! WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
-               ! WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
-               !WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
-               !WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
             END DO
          END IF
          DO n = 1, 8
@@ -143,6 +135,42 @@ PROGRAM shallow_water
                  * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n)))
          END DO
      END SELECT
+
+     ! for plotting movies
+     IF (inputs%want_movie) THEN
+       SELECT CASE(inputs%type_test)
+       CASE(14,16,17)
+         IF (0.d0 .LE. inputs%time) THEN
+           IF (inputs%time.GE.t_frame-1.d-10) THEN
+             kit=kit+1
+             t_frame = t_frame+dt_frame
+             DO i = 1, SIZE(bath)
+               IF (un(1,i).LE. 1.d-4*hmax0) THEN
+                 hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
+               ELSE
+                 hmovie(i) = un(1,i)+bath(i)
+               END IF
+             END DO
+
+             WRITE(frame,'(I3)') kit
+             header = 'hpz_movie_'//TRIM(ADJUSTL(frame))//'.plt'
+             CALL plot_1d(mesh%rr(1,:), hmovie, header)
+             ! header = 'h_movie_'//TRIM(ADJUSTL(frame))//'.vtk'
+             !
+             ! DO i = 1, SIZE(bath)
+             !    IF (un(1,i).LE. 1.d-4*hmax0) THEN
+             !       hmovie(i) = 0.d0
+             !    ELSE
+             !       hmovie(i) = un(1,i)
+             !    END IF
+             ! END DO
+             ! CALL plot_1d(mesh%rr(1,:), hmovie, header)
+           END IF
+         END IF
+       END SELECT
+       !CALL SYSTEM('mv hpz_movie_* ANIMATION')
+       !CALL SYSTEM('./ANIMATION/animation.sh')
+     END IF
 
   END DO
   tps = user_time() - tps
@@ -178,8 +206,8 @@ PROGRAM shallow_water
   !   write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
   !   write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
   CALL SYSTEM('gnuplot -persist -p seawall.gnu')
-  ! CASE(17)
-  ! CALL SYSTEM('gnuplot -persist -p bar.gnu')
+  CASE(17)
+  CALL SYSTEM('gnuplot -persist -p bar.gnu')
   END SELECT
 CONTAINS
 
@@ -189,7 +217,6 @@ CONTAINS
     USE boundary_conditions
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(IN) :: u0
-    !CALL compute_dij(u0,.true.)
     CALL compute_dij(u0,.false.)
     inputs%dt = inputs%CFL*1/MAXVAL(ABS(dij%aa(diag))/lumped)
   END SUBROUTINE COMPUTE_DT

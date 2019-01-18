@@ -13,7 +13,7 @@ MODULE input_data
      CHARACTER(LEN=15)              :: viscosity_type
      LOGICAL                        :: if_lumped
      LOGICAL                        :: if_alpha_limit
-     LOGICAL                        :: if_FGN, if_FGN_update
+     LOGICAL                        :: if_FGN, if_FGN_update, want_movie
      CHARACTER(LEN=3)               :: limiter_type
      INTEGER                        :: type_test
      REAL(KIND=8)                   :: dt, time
@@ -127,6 +127,13 @@ CONTAINS
        READ (in_unit,*)  inputs%if_FGN_update
     ELSE
        inputs%if_FGN_update = .FALSE.
+    END IF
+
+    CALL find_string(in_unit, "===Want movie?===(.t.,.f.),okay===",okay)
+    IF (okay) THEN
+       READ (in_unit,*)  inputs%want_movie
+    ELSE
+       inputs%want_movie= .FALSE.
     END IF
 
 
