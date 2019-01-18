@@ -8,3 +8,5 @@ SOURCES/makefile
 *.eps
 *.png
 *.txt
+*.out
+lis_*
