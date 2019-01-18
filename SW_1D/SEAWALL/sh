@@ -1,0 +1,64 @@
+#!/bin/bash
+# nohup $run > lis_100 &
+file_in=data
+run=../a.exe
+
+sed -i "/^final_time/c\1.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^1.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\2.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^2.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\3.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^3.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\4.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^4.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\5.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^5.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\6.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^6.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\7.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^7.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\8.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^8.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\9.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^9.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\10.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^10.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\11.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^11.0/c\final_time" $file_in
+sleep .5
+sed -i "/^final_time/c\12.0" $file_in
+sleep .5
+nohup $run
+sed -i "/^1.0/c\final_time" $file_in

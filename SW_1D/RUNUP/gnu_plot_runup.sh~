@@ -1,0 +1,1 @@
+gnuplot -persist -e "file_name = './EXPE/$1'" sw_runup.gnu #title "t-$2"
