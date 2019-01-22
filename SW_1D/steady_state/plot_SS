@@ -1,3 +1,0 @@
-plot "bath.plt" every ::9 with lines lt rgb "brown" linewidth 3 title 'bath'
-replot "HplusZ.plt" every ::9 with lines lt rgb "blue" linewidth 3 title 'hPz approx'
-replot "hPz_exact.plt" every ::9 title 'hPz exact'

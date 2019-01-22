@@ -5,15 +5,15 @@ mesh.FEM
 ===Test case number===
 15
 ===FGN?===(.t.,.f.),okay===
-.t.
+.f.
 ===Want movie?===(.t.,.f.),okay===
 .t.
 ===Lambda_bar?===
 1.d0
 ===Final time===
-20.
+40.
 ===CFL number===
-.1d0
+.2d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 'fct'
@@ -26,9 +26,9 @@ mesh.FEM
 ===Lumping the mass matrix? (true/false)===
 .t.
 ===How many Dirichlet boundaries for h?===
-2
+1
 ===List of Dirichlet boundaries for h?===
-1 2
+2 
 ===How many Dirichlet boundaries for ux?===
 1
 ===List of Dirichlet boundaries for ux?===

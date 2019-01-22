@@ -45,7 +45,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN) :: data_fichier
     LOGICAL :: okay
     inputs%epsilon_pminus   =-1.d-10 !Fct
-    inputs%epsilon_htiny    = 1.d-10 !htiny
+    inputs%epsilon_htiny    = 1.d-7 !htiny
     inputs%epsilon_limit    = 1.d-10  !limiter + limit alpha
     inputs%epsilon_regul_h  = 1.d-10 !Velocity
     OPEN(UNIT = in_unit, FILE = data_fichier, FORM = 'formatted', STATUS = 'unknown')

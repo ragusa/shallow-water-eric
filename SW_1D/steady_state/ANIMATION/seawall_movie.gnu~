@@ -24,7 +24,7 @@ set ytics font ",14"
 file = sprintf('hpz_movie_%0.0f.plt',ii)
 set style fill solid 
 plot file every ::9 with filledcurves y=-0.2 lt rgb "blue" linewidth 3 notitle, \
-     "bath.plt" every ::9 with filledcurves y1=-0.2 lt rgb "black" notitle, \ 
+     "bath.plt" every ::9 with filledcurves y1=-0.2 lt rgb "black" notitle, \
      "../gauge_locations.txt" with points pt 7 ps 1 lt rgb "red" notitle
     
 ######################################################

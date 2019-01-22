@@ -6,16 +6,14 @@ mesh.FEM
 16
 ===FGN?===(.t.,.f.),okay===
 .t.
-===run old FGN update?===(.t.,.f.),okay===
-.f.
 ===Want movie?===(.t.,.f.),okay===
-.t.
+.f.
 ===Lambda_bar?===
-1.d0
+5.d0
 ===Final time===
 12.
 ===CFL number===
-0.05d0
+0.03d0
 ===Mannings coefficient===
 0.012
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
@@ -30,7 +28,7 @@ mesh.FEM
 ===Lumping the mass matrix? (true/false)===
 .t.
 ===How many Dirichlet boundaries for h?===
-1
+0
 ===List of Dirichlet boundaries for h?===
 1 
 ===How many Dirichlet boundaries for ux?===

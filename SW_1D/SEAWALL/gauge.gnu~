@@ -1,5 +1,6 @@
 # seawall problem
-# for plotting 
+# for plotting over gauges
+# comment out the parts of starting at set terminal post ... replot if don't want to save figures
 
 
 ### Gauge 1 ###
@@ -101,7 +102,7 @@ replot
 ###############
 
 ### Gauge 40 ###
-set terminal qt 4
+set terminal qt 6
 set title "G40" offset 0,-4
 set xrange [0:10]
 set yrange [-0.02:0.1]
@@ -112,6 +113,6 @@ set ytics font ",16"
 plot "WG40.txt" using 1:2 with lines lt rgb "blue" linewidth 3 title "h",\
      "./EXPE/wg40.txt" with points pt 7 ps 1 lt rgb "red" title "EXP"
 set terminal postscript eps color
-set output 'WG1=40.eps'
+set output 'WG40.eps'
 replot
 ##################

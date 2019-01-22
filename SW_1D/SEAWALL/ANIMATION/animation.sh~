@@ -1,3 +1,4 @@
+rm *.plt
 cp ../bath.plt .
 mv ../hpz_movie_* .
 gnuplot -p seawall_movie.gnu
