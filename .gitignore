@@ -10,3 +10,4 @@ SOURCES/makefile
 *.txt
 *.out
 lis_*
+*.DS_store
