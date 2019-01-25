@@ -11,3 +11,4 @@ SOURCES/makefile
 *.out
 lis_*
 *.DS_store
+*.gnu
