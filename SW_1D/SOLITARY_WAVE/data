@@ -20,7 +20,7 @@ mesh.FEM
 ===Type of first-order viscosity===
 'type2'
 ===Alpha limitation? (True/False)===
-.t.
+.f.
 ===Lumping the mass matrix? (true/false)===
 .t.
 ===How many Dirichlet boundaries for h?===

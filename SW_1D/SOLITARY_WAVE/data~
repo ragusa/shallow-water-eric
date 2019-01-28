@@ -30,7 +30,7 @@ mesh.FEM
 ===How many Dirichlet boundaries for ux?===
 2
 ===List of Dirichlet boundaries for ux?===
-2 1 
+1 2 
 ===Number of subdomains in the mesh===
 1
 ===List of subdomain in the mesh===

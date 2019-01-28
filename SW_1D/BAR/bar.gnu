@@ -15,7 +15,7 @@ set xrange [0:25]
 set yrange [-0.12:0.04]
 set size ratio 0.4
 set key left top
-set ytics -0.12,0.02,0.04
+set ytics -0.32,0.02,0.04
 set key font ",14"
 set xtics font ",14" 
 set ytics font ",14" 
@@ -24,15 +24,14 @@ set style fill solid
 plot "HplusZ.plt" every ::9 with filledcurves y=-0.2 lt rgb "blue" notitle,\
      "bath.plt" every ::9 with filledcurves y1=-0.2 lt rgb "white" notitle 
     
-
-
-# need to set the terminal?
-#set terminal postscript eps color
-#set output 'GN-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'
+######################################################
+####            for saving files                  ####
+#eps size 4.0,2.0 enhanced color 
+#set terminal png 
+#set term pngcairo size 1024,768
+#outfile = sprintf('movie.%03.0f.png',ii)
+#set output outfile
 #replot
+######################################################
 
-# for saving plots for GN model
-#set output 'GN-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'
 
-# for saving plots for SW model
-#set output 'SW-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'

@@ -32,8 +32,8 @@ plot "HplusZ.plt" every ::9 with lines lt rgb "blue" linewidth 3 title sprintf("
 ######################################################
 ####            for saving files                  ####
 
-#set terminal postscript eps size 4.0,2.0 enhanced color \
-#    font 'Helvetica,20' linewidth 2
-#set output 'GN-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'
-#replot
+set terminal postscript eps size 4.0,2.0 enhanced color \
+    font 'Helvetica,20' linewidth 2
+set output 'GN-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'
+replot
 ######################################################

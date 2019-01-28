@@ -15,7 +15,6 @@ mesh.FEM
 ===CFL number===
 .1d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
-'entropy_visc'
 'viscous'
 'fct'
 'galerkin'

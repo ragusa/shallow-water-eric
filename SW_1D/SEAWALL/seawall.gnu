@@ -24,15 +24,16 @@ set ytics font ",14"
 #sprintf("t = %0.2ss",substr(file_name,10,11)),\
 
 #set arrow from 10.725, graph 0 to 10.725, graph 1 nohead
-set style fill pattern 4 bo
-plot "HplusZ.plt" every ::9 with lines lt rgb "blue" linewidth 3 title "hPz",\
+#set style fill pattern 4 bo
+set style fill solid
+plot "HplusZ.plt" every ::9 with filledcurves y1=-0.2 lt rgb "blue" linewidth 3 notitle,\
      "bath.plt" every ::9 with filledcurves y1=-0.2 lt rgb "black" notitle,\
-     "gauge_locations.txt" with points pt 7 ps 1 lt rgb "black" notitle
+     "gauge_locations.txt" with points pt 7 ps 1 lt rgb "red" notitle
 
 # need to set the terminal?
-#set terminal postscript eps color
-#set output 'GN-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'
-#replot
+set terminal postscript eps color
+set output 'seawall-presentation.eps'
+replot
 
 # for saving plots for GN model
 #set output 'GN-runup-'.sprintf("%0.2s",substr(file_name,10,11)).'.eps'
