@@ -600,7 +600,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(11,12,13,14,15,16)
+    CASE(11,12,13,14,15,16,17)
 
        x0=(2.d0*SQRT(2.d0)-1.d0)**2
        IF(hl.LE.hr) THEN
@@ -629,8 +629,8 @@ CONTAINS
           ELSE
              augr = (inputs%lambda_bar/(3*lumpedr))*(6*hr)
           END IF
-          augl=(inputs%lambda_bar/(3*lumpedl))*(6*lumpedl)*lumpedl/max(lumpedl,hl)
-          augr=(inputs%lambda_bar/(3*lumpedr))*(6*lumpedr)*lumpedr/max(lumpedr,hr)
+          augl=augl*(lumpedl/max(lumpedl,hl))!**2
+          augr=augr*(lumpedr/max(lumpedr,hr))!**2
        ELSE
           augr=0.d0
           augl=0.d0
@@ -675,6 +675,12 @@ CONTAINS
        lbdl = vl - sql*SQRT((1+augl+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
        lbdr = vr + sqr*SQRT((1+augr+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
 100    CONTINUE
+
+       ! TEst
+       IF (inputs%if_FGN) THEN
+         lbdl = vl - sql*SQRT(1+augl)
+         lbdr = vr + sqr*SQRT(1+augr)
+       END IF
 
        lambda = MAX(ABS(lbdl),ABS(lbdr))
 

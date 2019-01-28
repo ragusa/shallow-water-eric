@@ -260,7 +260,7 @@ CONTAINS
     CALL compute_dij(un,.FALSE.)
     CALL compute_muij(un)
     !TEST JLG
-    muij%aa = 1.01*muij%aa
+    muij%aa = 1.001*muij%aa
     !TEST JLG
     dij%aa = MAX(dij%aa,muij%aa)
     IF (inputs%viscosity_type=='fct') THEN
@@ -535,7 +535,9 @@ CONTAINS
              nij=nij/norm_cij
              CALL compute_lambda_vacc(un(:,i),un(:,j),velocity(:,i),velocity(:,j),&
                   mesh_size(i),mesh_size(j),nij,lambda,lumped(i),lumped(j))
+
              dij%aa(p) = norm_cij*lambda
+
           ELSE
              dij%aa(p) = 0.d0
           END IF
@@ -883,10 +885,11 @@ CONTAINS
     REAL(KIND=8) :: denom, num, h_threshold
     REAL(KIND=8) :: denomstar, numstar, Hstarij, Hstarji
     REAL(KIND=8) :: amax, amaxstar
-    !REAL(KIND=8), PARAMETER :: alphath=0.5d0, omalphath=1.d0/(1.d0-alphath)
+    REAL(KIND=8), PARAMETER :: alphath=0.5d0, omalphath=1.d0/(1.d0-alphath)
     !INTEGER,      PARAMETER :: exponent=2 !Test in paper done with exponent=2.
-    REAL(KIND=8), PARAMETER :: alphath=0.0d0, omalphath=1.d0/(1.d0-alphath)
-    INTEGER,      PARAMETER :: exponent=2 !Test in paper done with exponent=2.
+    !REAL(KIND=8), PARAMETER :: alphath=0.0d0, omalphath=1.d0/(1.d0-alphath)
+    !INTEGER,      PARAMETER :: exponent=2 !Test in paper done with exponent=2.
+    INTEGER,      PARAMETER :: exponent=3 !Test in mGN paper done with exponent=3.
 
     DO i = 1, mesh%np
        !===Keep full viscosity in dry regions
@@ -1313,7 +1316,6 @@ CONTAINS
        END DO
        WRITE(*,*) psil, psir
     END DO
-    CONTAINS
   END SUBROUTINE convex_limiting
 
   FUNCTION psi_rho_e(u,emax,Budget) RESULT(psi)
@@ -1508,69 +1510,5 @@ CONTAINS
     END DO
 
   END SUBROUTINE FGN_rhs
-
-  ! this is old one, do not use!!!
-  SUBROUTINE old_FGN_rhs(un,rk)
-    USE mesh_handling
-    USE boundary_conditions
-    IMPLICIT NONE
-    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np)  :: un
-    REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(OUT) :: rk
-    REAL(KIND=8), DIMENSION(mesh%np)  :: lambda_bar,  eta, omega, &
-         htwo_Gammap, pp, alpha, eta_over_h, heta_gammap, h, ratio
-    REAL(KIND=8) :: mineta, x0
-    INTEGER :: i, j, k, p
-
-    h  = un(1,:)
-    eta = un(inputs%syst_size-1,:)*compute_one_over_h(un(1,:))
-    eta_over_h = un(inputs%syst_size-1,:)*compute_one_over_h(un(1,:))**2
-    omega = un(inputs%syst_size,:)*compute_one_over_h(un(1,:))
-    ratio =  2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny)
-    IF (MINVAL(eta)<-1.d-14*inputs%max_water_h) THEN
-       WRITE(*,*) 'eta negative', MINVAL(eta)
-       !STOP
-    END IF
-
-    alpha = inputs%lambda_bar/(3*lumped) !1D
-
-    DO i = 1, mesh%np
-       x0 =  MIN(2.d0,SQRT(1.d0+1.d0/(2*alpha(i)*(MAX(eta(i),0.d0)+inputs%htiny))))
-       IF (eta(i).LE.0.d0) THEN
-          pp(i) = 0.d0
-          htwo_Gammap(i) = 0.d0
-          heta_Gammap(i) = 0.d0
-       ELSE IF (eta(i).LE.x0*h(i)) THEN
-          pp(i) = -alpha(i)*inputs%gravity*eta(i)*(eta(i)**2-h(i)**2)
-          htwo_Gammap(i) = 3*eta(i)**2+h(i)**2-4*un(inputs%syst_size-1,i)
-          heta_Gammap(i) = 3*eta(i)**2*eta_over_h(i)+un(inputs%syst_size-1,i)-4*eta(i)**2
-       ELSE
-          pp(i) = -alpha(i)*inputs%gravity*(x0**2-1.d0)*un(inputs%syst_size-1,i)*h(i)
-          htwo_Gammap(i) = 4*(x0-1.d0)*un(inputs%syst_size-1,i)+(1-x0**2)*h(i)**2
-          heta_Gammap(i) = 4*(x0-1.d0)*eta(i)**2 + (1-x0**2)*un(inputs%syst_size-1,i)
-       END IF
-    END DO
-
-    IF (k_dim==1) THEN
-       lambda_bar = inputs%lambda_bar*inputs%gravity/lumped
-
-    ELSE
-       lambda_bar = inputs%lambda_bar*inputs%gravity/SQRT(lumped)
-    END IF
-
-    DO i = 1, mesh%np
-       !rk(inputs%syst_size-1,i) = rk(inputs%syst_size-1,i) + lumped(i)*eta(i)*omega(i)*ratio(i)**3
-       !rk(inputs%syst_size,i)   = rk(inputs%syst_size,i)   - lambda_bar(i)*lumped(i)*heta_Gammap(i)*ratio(i)
-       !rk(inputs%syst_size-1,i) = rk(inputs%syst_size-1,i) + lumped(i)*un(inputs%syst_size,i)
-       !rk(inputs%syst_size,i)   = rk(inputs%syst_size,i)   - lambda_bar(i)*lumped(i)*htwo_Gammap(i)
-       rk(inputs%syst_size-1,i) = rk(inputs%syst_size-1,i) + lumped(i)*un(inputs%syst_size,i)*ratio(i)**3
-       rk(inputs%syst_size,i)   = rk(inputs%syst_size,i)   - lambda_bar(i)*lumped(i)*htwo_Gammap(i)*ratio(i)**3
-       DO p = mass%ia(i), mass%ia(i+1) - 1
-          j = mass%ja(p)
-          DO k = 1, k_dim
-             rk(k+1,i) = rk(k+1,i) - pp(j)*cij(k)%aa(p)
-          END DO
-       END DO
-    END DO
-  END SUBROUTINE old_FGN_rhs
 
 END MODULE update
