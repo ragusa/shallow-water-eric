@@ -139,7 +139,7 @@ PROGRAM shallow_water
      ! for plotting movies
      IF (inputs%want_movie) THEN
        SELECT CASE(inputs%type_test)
-       CASE(14,15,16,17)
+       CASE(14,15,16,17,18)
          IF (0.d0 .LE. inputs%time) THEN
            IF (inputs%time.GE.t_frame-1.d-10) THEN
              kit=kit+1
@@ -210,6 +210,8 @@ PROGRAM shallow_water
   CALL SYSTEM('gnuplot -persist -p steady.gnu')
   CASE(17)
   CALL SYSTEM('gnuplot -persist -p bar.gnu')
+  CASE(18)
+  CALL SYSTEM('gnuplot -persist -p slope.gnu')
   END SELECT
 CONTAINS
 

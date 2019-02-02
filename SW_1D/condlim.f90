@@ -11,6 +11,7 @@ MODULE boundary_conditions
   !15=1D mGN steady state
   !16=1D Solitary wave Seawall
   !17=1D Periodic waves over submerged bar
+  !18=1D Flows over a slope
   USE input_data
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE   :: bath
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: velocity
@@ -58,7 +59,7 @@ CONTAINS
     REAL(KIND=8) :: hh, vel, reg
     INTEGER :: n
     SELECT CASE(inputs%type_test)
-    CASE(13,14,15,16,17)
+    CASE(13,14,15,16,17,18)
        DO n = 1, mesh%np
           vv(1:inputs%syst_size,1,n) = velocity(1,n)*un(1:inputs%syst_size,n)
        END DO
@@ -77,7 +78,7 @@ CONTAINS
     INTEGER :: n
     LOGICAL, SAVE :: once=.TRUE.
     DO n = 1, mesh%np
-       vv(n) = 2*max(un(n),0.d0)/(un(n)**2+max(un(n),inputs%htiny)**2)
+       vv(n) = 2*MAX(un(n),0.d0)/(un(n)**2+MAX(un(n),inputs%htiny)**2)
     END DO
   END FUNCTION compute_one_over_h
 
@@ -116,7 +117,7 @@ CONTAINS
        DO i = 1, mesh%np
           bath(i) = MAX((mesh%rr(1,i) ) * slope, -h0)
        END DO
-     CASE(15) ! modified hyperbolic GN steady state
+    CASE(15) ! modified hyperbolic GN steady state
        inputs%gravity = 9.81d0
        z  = 1.d0
        a  = .2d0
@@ -131,38 +132,37 @@ CONTAINS
        sechSqd = (1.0d0/COSH(z*x))**2.0d0
 
        waterh = h0*(1+a*sechSqd)
-       waterhp = h0*a*(-2*sechSqd*tanh(z*x)*z)
-       waterhpp = h0*a*(4*sechSqd*tanh(z*x)**2*z**2-2*sechSqd*(1.d0-tanh(z*x)**2)*z**2)
+       waterhp = h0*a*(-2*sechSqd*TANH(z*x)*z)
+       waterhpp = h0*a*(4*sechSqd*TANH(z*x)**2*z**2-2*sechSqd*(1.d0-TANH(z*x)**2)*z**2)
        bath = cBer - waterh &
             -q**2/(2*inputs%gravity*waterh**2)*(1+(2*waterh*waterhpp-waterhp**2)/3.d0)
     CASE(16) !===Seawall (Eric T., 11/16/2018)
-      ! initial constants go here
-      inputs%gravity = 9.81d0
-      h0 = 0.2d0 ! reference height
-      a = 0.35d0 ! amplitude
-      max_water_h = a + h0
-      inputs%max_water_h = max_water_h
+       ! initial constants go here
+       inputs%gravity = 9.81d0
+       h0 = 0.2d0 ! reference height
+       a = 0.35d0 ! amplitude
+       max_water_h = a + h0
+       inputs%max_water_h = max_water_h
 
 
-      ! shift x 3 metres to match the shift in origin introduced by Hsiao and Lin
-      x = mesh%rr(1,:) + 3.d0
-      DO i = 1, mesh%np
-        IF (x(i) .LT. 10.d0) THEN
-          bath(i) = 0.d0
-        ELSE IF (x(i) .GE. 13.6d0 .AND. x(i) .LE. 13.9d0) THEN
-          bath(i) = 3.6d0/20.d0 + (x(i)-13.6d0)*0.076d0/(13.9d0 - 13.6d0)
-        ELSE IF (x(i) .GE. 13.9d0 .AND. x(i) .LE. 13.948d0) THEN
-          bath(i) = 3.6d0/20.d0 + 0.076d0
-        ELSE IF (x(i) .GE. 13.948d0 .AND. x(i) .LE. 14.045d0) THEN
-          bath(i) = 3.6d0/20.d0 + 0.076d0 - (x(i)-13.948d0)*(0.076d0-0.022d0)/(14.045d0 - 13.948d0)
-        ELSE
-          bath(i) = (x(i) - 10.d0)/20.d0
-        END IF
-      END DO
-      bath = bath - h0 ! shift bath down by reference height
+       ! shift x 3 metres to match the shift in origin introduced by Hsiao and Lin
+       x = mesh%rr(1,:) + 3.d0
+       DO i = 1, mesh%np
+          IF (x(i) .LT. 10.d0) THEN
+             bath(i) = 0.d0
+          ELSE IF (x(i) .GE. 13.6d0 .AND. x(i) .LE. 13.9d0) THEN
+             bath(i) = 3.6d0/20.d0 + (x(i)-13.6d0)*0.076d0/(13.9d0 - 13.6d0)
+          ELSE IF (x(i) .GE. 13.9d0 .AND. x(i) .LE. 13.948d0) THEN
+             bath(i) = 3.6d0/20.d0 + 0.076d0
+          ELSE IF (x(i) .GE. 13.948d0 .AND. x(i) .LE. 14.045d0) THEN
+             bath(i) = 3.6d0/20.d0 + 0.076d0 - (x(i)-13.948d0)*(0.076d0-0.022d0)/(14.045d0 - 13.948d0)
+          ELSE
+             bath(i) = (x(i) - 10.d0)/20.d0
+          END IF
+       END DO
+       bath = bath - h0 ! shift bath down by reference height
        !===Find Gauges
        CALL seawall_gauges
-
     CASE(17) !===Period Waves over bar
        inputs%gravity = 9.81d0
        h0 = 0.03d0
@@ -185,7 +185,22 @@ CONTAINS
        END DO
        !===Find Gauges
        CALL bar_gauges
+    CASE(18) !===Flow over a slope (Eric T., 02/01/2019)
+       ! initial constants go here
+       inputs%gravity = 9.81d0
+       h0 = 20.d0 ! reference height
+       a = 0.28d0 ! amplitude
+       max_water_h = 1.d0
+       inputs%max_water_h = max_water_h
 
+       x = mesh%rr(1,:)
+       DO i = 1, mesh%np
+          IF (x(i) .LT. 1.d0) THEN
+             bath(i) = h0
+          ELSE
+             bath(i) = -(1.d0/4.d0)*h0*(-5.d0 + x(i))
+          END IF
+       END DO
 
     CASE DEFAULT
        WRITE(*,*) ' BUG in init'
@@ -367,7 +382,7 @@ CONTAINS
        CASE(3)
           vv = (vv)**2  !h_0*eta_0
        CASE(4)
-          aux = -eta*(h2-h1)*2*(1.d0/COSH(aux)**2)*tanh(aux) !dh/dx
+          aux = -eta*(h2-h1)*2*(1.d0/COSH(aux)**2)*TANH(aux) !dh/dx
           vv = (dd*(1-h1/vv)-dd)*aux*vv !(u0-d)dh0/dx * h0
        END SELECT
     CASE(14) !===Run up
@@ -422,7 +437,7 @@ CONTAINS
              END DO
           END IF
        END SELECT
-    CASE(15)
+    CASE(15) !===Steady state
        ! initial constants go here
        z  = 1.d0
        a  = .2d0
@@ -571,6 +586,81 @@ CONTAINS
              vv(i) = 0.d0
           END DO
        END SELECT
+    CASE(18) !===Flow over slope
+       ! initial constants go here
+       inputs%gravity = 9.81d0
+       h0 = 20.d0
+       a = 0.28d0 ! amplitude
+       k_wavenumber = SQRT(3.d0 * a/(4.d0 * h0**3)) ! wavenumber
+       z = SQRT(3.d0 * a * h0) / (2.d0 * h0 * SQRT(h0 * (1.d0 + a)))
+       L = 2.d0 / k_wavenumber * ACOSH(SQRT(1.d0 / 0.05d0)) ! wavelength of solitary wave
+       c = SQRT(inputs%gravity * (1.d0 + a) * h0) ! wave speed
+       x0 = 0.5d0 ! initial location of solitary wave
+
+       ! define bathymetry here because it's easier
+       x_coord = rr(1,:)
+       DO i = 1, SIZE(rr,2) !BE CAREFUL. DO NOT DEFINE THE ARRAY bath HERE
+          IF (x_coord(i) .LE. 1.d0) THEN
+             aux(i) = h0
+          ELSE
+             aux(i) = -(1.d0/4.d0)*h0*(-5.d0 + x_coord(i))  ! bath = -(1/14) h0 (-15 + x)
+          END IF
+       END DO
+       aux = aux - h0
+
+       SELECT CASE(k)
+       CASE(1) ! h water height
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                !sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                !htilde = a * h0 * sechSqd
+                IF (rr(1,i) .LE. 1.d0) THEN
+                   vv(i) = 3.d0
+                ELSE
+                  vv(i) = 0
+                END IF
+             END DO
+          END IF
+       CASE(2) ! h*u component, u = c htilde/ (htilde + h0)
+          !IF (t.LE.1.d-14) THEN
+          DO i = 1, SIZE(rr,2)
+             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+             htilde= a * h0 * sechSqd ! this is exact solitary wave
+             vv(i) = MAX(htilde-aux(i),0.d0)
+             vv(i) =  vv(i) * c * htilde / (h0 + htilde)
+             !IF (rr(1,i) .LE. 1.d0) THEN
+             vv(i) = 0.25d0
+             !END IF
+          END DO
+          !END IF
+       CASE(3) ! h*eta component, eta = h
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd
+                IF (rr(1,i) .LE. 1.d0) THEN
+                   vv(i) = 3.d0**2
+                ELSE
+                  vv(i) = 0
+                END IF
+                vv(i) = MAX(htilde - aux(i),0.d0)
+                vv(i) = vv(i) * vv(i)
+             END DO
+          END IF
+       CASE(4) ! h*w component of flow rate, which is -waterHeight^2 * div(velocity)
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd ! this is exact solution
+                hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+                vv(i) = MAX(htilde - aux(i),0.d0)
+                ! this is -waterHeight^2 * div(velocity)
+                vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+                vv(i) = 0.d0
+             END DO
+          END IF
+       END SELECT
+
     CASE DEFAULT
        WRITE(*,*) ' BUG in sol_anal'
        STOP
@@ -590,8 +680,8 @@ CONTAINS
     REAL(KIND=8) :: fl, fr, ht, vl, vr, hl, hr, lbdl, lbdr, lbd_dry, sql, sqr
     REAL(KIND=8) :: fh, a, c, Delta, x0, hmin, hmax, vmin, vmax, sqrmin, sqrmax
     REAL(KIND=8) :: ovhl, ovhr, etal, etar, augl, augr
-    hl = max(ul(1),inputs%epsilon_htiny*max_water_h)
-    hr = max(ur(1),inputs%epsilon_htiny*max_water_h)
+    hl = MAX(ul(1),inputs%epsilon_htiny*max_water_h)
+    hr = MAX(ur(1),inputs%epsilon_htiny*max_water_h)
     ovhl=1.d0/hl
     ovhr=1.d0/hr
     vl =  SUM(vell*nij)
@@ -600,7 +690,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(11,12,13,14,15,16,17)
+    CASE(11,12,13,14,15,16,17,18)
 
        x0=(2.d0*SQRT(2.d0)-1.d0)**2
        IF(hl.LE.hr) THEN
@@ -629,8 +719,8 @@ CONTAINS
           ELSE
              augr = (inputs%lambda_bar/(3*lumpedr))*(6*hr)
           END IF
-          augl=augl*(lumpedl/max(lumpedl,hl))!**2
-          augr=augr*(lumpedr/max(lumpedr,hr))!**2
+          augl=augl*(lumpedl/MAX(lumpedl,hl))**2
+          augr=augr*(lumpedr/MAX(lumpedr,hr))**2
        ELSE
           augr=0.d0
           augl=0.d0
@@ -640,11 +730,11 @@ CONTAINS
        !===Case 1
        fh = phi(x0*hmin,vl,hl,vr,hr)
        IF (0.d0.LE.fh) THEN
-          ht = min(x0*hmin,(MAX(vl-vr+2*sql+2*sqr,0.d0))**2/(16*inputs%gravity))
+          ht = MIN(x0*hmin,(MAX(vl-vr+2*sql+2*sqr,0.d0))**2/(16*inputs%gravity))
           !lbdl = vl - sql*SQRT((1+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
           !lbdr = vr + sqr*SQRT((1+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
-          lbdl = vl - sql*SQRT((1+augl+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
-          lbdr = vr + sqr*SQRT((1+augr+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
+          lbdl = vl - sql*SQRT((1+augl+MAX((ht-hl)*ovhl/2,0.d0))*(1+MAX((ht-hl)*ovhl,0.d0)))
+          lbdr = vr + sqr*SQRT((1+augr+MAX((ht-hr)*ovhr/2,0.d0))*(1+MAX((ht-hr)*ovhr,0.d0)))
           GO TO 100
        END IF
        !===Case 2
@@ -653,33 +743,33 @@ CONTAINS
           sqrmin = SQRT(hmin)
           sqrmax = SQRT(hmax)
           a = 1/(2.d0*SQRT(2.d0))
-          c = -hmin*a -sqrmin*sqrmax + sqrmin*(vr-vl)/(2*sqrt(inputs%gravity))
+          c = -hmin*a -sqrmin*sqrmax + sqrmin*(vr-vl)/(2*SQRT(inputs%gravity))
           Delta = hmin-4*a*c
           IF (Delta<0.d0) THEN
              WRITE(*,*) ' BUG in compute_lambda_vacc'
              STOP
           END IF
-          ht = min(x0*hmax,((-sqrmin+sqrt(Delta))/(2*a))**2)
+          ht = MIN(x0*hmax,((-sqrmin+SQRT(Delta))/(2*a))**2)
           !lbdl = vl - sql*SQRT((1+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
           !lbdr = vr + sqr*SQRT((1+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
-          lbdl = vl - sql*SQRT((1+augl+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
-          lbdr = vr + sqr*SQRT((1+augr+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
+          lbdl = vl - sql*SQRT((1+augl+MAX((ht-hl)*ovhl/2,0.d0))*(1+MAX((ht-hl)*ovhl,0.d0)))
+          lbdr = vr + sqr*SQRT((1+augr+MAX((ht-hr)*ovhr/2,0.d0))*(1+MAX((ht-hr)*ovhr,0.d0)))
           GO TO 100
        END IF
        !===Case 3
        sqrmin = SQRT(hmin)
        sqrmax = SQRT(hmax)
-       ht = sqrmin*sqrmax*(1+sqrt(2/inputs%gravity)*(vl-vr)/(sqrmin+sqrmax))
+       ht = sqrmin*sqrmax*(1+SQRT(2/inputs%gravity)*(vl-vr)/(sqrmin+sqrmax))
        !lbdl = vl - sql*SQRT((1+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
        !lbdr = vr + sqr*SQRT((1+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
-       lbdl = vl - sql*SQRT((1+augl+max((ht-hl)*ovhl/2,0.d0))*(1+max((ht-hl)*ovhl,0.d0)))
-       lbdr = vr + sqr*SQRT((1+augr+max((ht-hr)*ovhr/2,0.d0))*(1+max((ht-hr)*ovhr,0.d0)))
+       lbdl = vl - sql*SQRT((1+augl+MAX((ht-hl)*ovhl/2,0.d0))*(1+MAX((ht-hl)*ovhl,0.d0)))
+       lbdr = vr + sqr*SQRT((1+augr+MAX((ht-hr)*ovhr/2,0.d0))*(1+MAX((ht-hr)*ovhr,0.d0)))
 100    CONTINUE
 
        ! TEst
        IF (inputs%if_FGN) THEN
-         lbdl = vl - sql*SQRT(1+augl)
-         lbdr = vr + sqr*SQRT(1+augr)
+          lbdl = vl - sql*SQRT(1+augl)
+          lbdr = vr + sqr*SQRT(1+augr)
        END IF
 
        lambda = MAX(ABS(lbdl),ABS(lbdr))

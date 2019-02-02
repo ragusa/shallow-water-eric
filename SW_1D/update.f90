@@ -260,7 +260,7 @@ CONTAINS
     CALL compute_dij(un,.FALSE.)
     CALL compute_muij(un)
     !TEST JLG
-    muij%aa = 1.001*muij%aa
+    muij%aa = 1.001*muij%aa ! hack
     !TEST JLG
     dij%aa = MAX(dij%aa,muij%aa)
     IF (inputs%viscosity_type=='fct') THEN
@@ -668,7 +668,7 @@ CONTAINS
     END DO
 
     SELECT CASE(inputs%type_test)
-    CASE(14,16)
+    CASE(14,16,18)
        CALL friction(un,rk)
     END SELECT
 
@@ -775,7 +775,7 @@ CONTAINS
     END DO
 
     SELECT CASE(inputs%type_test)
-    CASE(14,16)
+    CASE(14,16,18)
        CALL friction(un,rk)
     END SELECT
 
@@ -1446,7 +1446,7 @@ CONTAINS
     END DO
 
     SELECT CASE(inputs%type_test)
-    CASE(14,16)
+    CASE(14,16,18)
        CALL friction(un,rk)
     END SELECT
 

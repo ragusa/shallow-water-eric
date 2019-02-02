@@ -12,3 +12,5 @@ SOURCES/makefile
 lis_*
 *.DS_store
 *.gnu
+*/a.exe
+*.mod
