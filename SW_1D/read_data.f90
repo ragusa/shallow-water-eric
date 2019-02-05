@@ -138,7 +138,7 @@ CONTAINS
 
 
     SELECT CASE(inputs%type_test)
-    CASE(9,12,14,16)
+    CASE(9,12,14,16,18)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
     CASE(10)

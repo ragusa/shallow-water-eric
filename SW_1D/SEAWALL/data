@@ -11,9 +11,9 @@ mesh.FEM
 ===Lambda_bar?===
 1.d0
 ===Final time===
-2.12
+12
 ===CFL number===
-0.07d0
+0.065d0
 ===Mannings coefficient===
 0.012
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===

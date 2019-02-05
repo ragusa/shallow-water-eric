@@ -13,7 +13,7 @@ mesh.FEM
 ===Final time===
 65.
 ===CFL number===
-.2d0
+.08d0
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
 'viscous'
 'fct'
@@ -22,7 +22,7 @@ mesh.FEM
 ===Type of first-order viscosity===
 'type2'
 ===Alpha limitation? (True/False)===
-.f.
+.t.
 ===Lumping the mass matrix? (true/false)===
 .t.
 ===How many Dirichlet boundaries for h?===
