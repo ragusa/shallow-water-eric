@@ -33,7 +33,7 @@ MODULE input_data
      REAL(KIND=8)                   :: epsilon_regul_h, epsilon_limit
      REAL(KIND=8)                   :: epsilon_htiny, epsilon_pminus
      REAL(KIND=8)                   :: max_water_h
-  END type my_data
+  END TYPE my_data
   TYPE(my_data), PUBLIC  :: inputs
   PRIVATE
 CONTAINS
@@ -122,12 +122,6 @@ CONTAINS
        inputs%if_FGN = .FALSE.
        inputs%lambda_bar = 0.d0
     END IF
-    CALL find_string(in_unit, "===run old FGN update?===(.t.,.f.),okay===",okay)
-    IF (okay) THEN
-       READ (in_unit,*)  inputs%if_FGN_update
-    ELSE
-       inputs%if_FGN_update = .FALSE.
-    END IF
 
     CALL find_string(in_unit, "===Want movie?===(.t.,.f.),okay===",okay)
     IF (okay) THEN
@@ -157,6 +151,6 @@ CONTAINS
        inputs%mannings = 0.d0
     END SELECT
 
- CLOSE(in_unit)
-END SUBROUTINE read_my_data
+    CLOSE(in_unit)
+  END SUBROUTINE read_my_data
 END MODULE input_data

@@ -13,35 +13,41 @@ MODULE input_data
      CHARACTER(LEN=15)              :: viscosity_type
      LOGICAL                        :: if_lumped
      LOGICAL                        :: if_alpha_limit
-     LOGICAL                        :: if_fct_limit
+     LOGICAL                        :: if_FGN, if_FGN_update, want_movie
+     CHARACTER(LEN=3)               :: limiter_type
      INTEGER                        :: type_test
      REAL(KIND=8)                   :: dt, time
-     INTEGER                        :: h_nb_Dir_bdy, ux_nb_Dir_bdy, uy_nb_Dir_bdy, &
-                                       heta_nb_Dir_bdy, hw_nb_Dir_bdy
-     INTEGER, DIMENSION(:), POINTER :: h_Dir_list, ux_Dir_list, uy_Dir_list, &
-                                       heta_Dir_list, hw_Dir_list
+     INTEGER                        :: h_nb_Dir_bdy, ux_nb_Dir_bdy, uy_nb_Dir_bdy
+     INTEGER, DIMENSION(:), POINTER :: h_Dir_list, ux_Dir_list, uy_Dir_list
      REAL(KIND=8)                   :: gravity
-     REAL(KIND=8)                   :: mannings, rainRate
+     REAL(KIND=8)                   :: mannings, slope, discharge
      REAL(KIND=8)                   :: eta
+     REAL(KIND=8)                   :: lambda_bar
+     INTEGER                        :: nb_udotn_zero
      INTEGER                        :: nb_Dir_bdy
      INTEGER, DIMENSION(:), POINTER :: Dir_list
+     INTEGER, DIMENSION(:), POINTER :: udotn_zero_list
      INTEGER                        :: syst_size
+     !INTEGER                        :: nb_frame
      REAL(KIND=8)                   :: htiny
-     REAL(KIND=8)                   :: epsilon, max_water_h,epsilon_htiny
-     REAL(KIND=8)                   :: lambdaSGN
-     REAL(KIND=8)                   :: x1, x2, y1, y2
-     REAL(KIND=8)                   :: refinement
-  END type my_data
+     REAL(KIND=8)                   :: epsilon_regul_h, epsilon_limit
+     REAL(KIND=8)                   :: epsilon_htiny, epsilon_pminus
+     REAL(KIND=8)                   :: max_water_h
+  END TYPE my_data
   TYPE(my_data), PUBLIC  :: inputs
   PRIVATE
 CONTAINS
   SUBROUTINE read_my_data(data_fichier)
     USE character_strings
+    USE space_dim
     IMPLICIT NONE
     INTEGER, PARAMETER           :: in_unit=21
     CHARACTER(len=*), INTENT(IN) :: data_fichier
-    inputs%epsilon = 1.d-13
-    inputs%epsilon_htiny = 1.d-10
+    LOGICAL :: okay
+    inputs%epsilon_pminus   =-1.d-10 !Fct
+    inputs%epsilon_htiny    = 1.d-7 !htiny
+    inputs%epsilon_limit    = 1.d-10  !limiter + limit alpha
+    inputs%epsilon_regul_h  = 1.d-10 !Velocity
     OPEN(UNIT = in_unit, FILE = data_fichier, FORM = 'formatted', STATUS = 'unknown')
     CALL read_until(in_unit, "===Name of directory for mesh file===")
     READ (in_unit,*) inputs%directory
@@ -68,6 +74,21 @@ CONTAINS
     READ (in_unit,*) inputs%if_lumped
     CALL read_until(in_unit, "===Test case number===")
     READ (in_unit,*) inputs%type_test
+    CALL find_string(in_unit, "===How many boundaries for u.n=0?===",okay)
+    IF (okay) THEN
+       READ (in_unit,*)  inputs%nb_udotn_zero
+       IF (inputs%nb_udotn_zero>0) THEN
+          CALL read_until(in_unit, "===List of boundarie for u.n=0?===")
+          ALLOCATE(inputs%udotn_zero_list(inputs%nb_udotn_zero))
+          READ (in_unit,*) inputs%udotn_zero_list
+       ELSE
+          inputs%nb_udotn_zero = 0
+          ALLOCATE(inputs%udotn_zero_list(inputs%nb_udotn_zero))
+       END IF
+    ELSE
+       inputs%nb_udotn_zero = 0
+       ALLOCATE(inputs%udotn_zero_list(inputs%nb_udotn_zero))
+    END IF
     CALL read_until(in_unit, "===How many Dirichlet boundaries for h?===")
     READ (in_unit,*)  inputs%h_nb_Dir_bdy
     CALL read_until(in_unit, "===List of Dirichlet boundaries for h?===")
@@ -78,44 +99,54 @@ CONTAINS
     CALL read_until(in_unit, "===List of Dirichlet boundaries for ux?===")
     ALLOCATE(inputs%ux_Dir_list(inputs%ux_nb_Dir_bdy))
     READ (in_unit,*) inputs%ux_Dir_list
-    CALL read_until(in_unit, "===How many Dirichlet boundaries for uy?===")
-    READ (in_unit,*)  inputs%uy_nb_Dir_bdy
-    CALL read_until(in_unit, "===List of Dirichlet boundaries for uy?===")
-    ALLOCATE(inputs%uy_Dir_list(inputs%uy_nb_Dir_bdy))
+    IF (k_dim==2) THEN
+       CALL read_until(in_unit, "===How many Dirichlet boundaries for uy?===")
+       READ (in_unit,*)  inputs%uy_nb_Dir_bdy
+       CALL read_until(in_unit, "===List of Dirichlet boundaries for uy?===")
+       ALLOCATE(inputs%uy_Dir_list(inputs%uy_nb_Dir_bdy))
+       READ (in_unit,*) inputs%uy_Dir_list
+    END IF
+    ! CALL find_string(in_unit, "===How many vtk frames?===",okay)
+    ! IF (okay) THEN
+    !    READ (in_unit,*)  inputs%nb_frame
+    ! ELSE
+    !    inputs%nb_frame = 0
+    ! END IF
+
+    CALL find_string(in_unit, "===FGN?===(.t.,.f.),okay===",okay)
+    IF (okay) THEN
+       READ (in_unit,*)  inputs%if_FGN
+       CALL read_until(in_unit, "===Lambda_bar?===")
+       READ (in_unit,*) inputs%lambda_bar
+    ELSE
+       inputs%if_FGN = .FALSE.
+       inputs%lambda_bar = 0.d0
+    END IF
+
+    CALL find_string(in_unit, "===Want movie?===(.t.,.f.),okay===",okay)
+    IF (okay) THEN
+       READ (in_unit,*)  inputs%want_movie
+    ELSE
+       inputs%want_movie= .FALSE.
+    END IF
 
 
     SELECT CASE(inputs%type_test)
-    CASE(8,9,10,14,15,16,21)
+    CASE(9,12,14,16,18)
        CALL read_until(in_unit, "===Mannings coefficient===")
        READ (in_unit,*) inputs%mannings
     CASE DEFAULT
        inputs%mannings = 0.d0
     END SELECT
 
-    SELECT CASE(inputs%type_test)
-    CASE(21)
-       CALL read_until(in_unit, "===Rain rate===")
-       READ (in_unit,*) inputs%rainRate
-    CASE DEFAULT
-       inputs%rainRate = 0.d0
-    END SELECT
+    ! SELECT CASE(inputs%type_test)
+    ! CASE(21)
+    !    CALL read_until(in_unit, "===Rain rate===")
+    !    READ (in_unit,*) inputs%rainRate
+    ! CASE DEFAULT
+    !    inputs%rainRate = 0.d0
+    ! END SELECT
 
-    SELECT CASE(inputs%type_test) ! for hyperbolic SGN model
-    CASE(8,13,14,15,16,17,18,19,20,21)
-      CALL read_until(in_unit, "===How many Dirichlet boundaries for heta?===")
-      READ (in_unit,*)  inputs%heta_nb_Dir_bdy
-      CALL read_until(in_unit, "===List of Dirichlet boundaries for heta?===")
-      ALLOCATE(inputs%heta_Dir_list(inputs%heta_nb_Dir_bdy))
-      READ (in_unit,*) inputs%heta_Dir_list
-      CALL read_until(in_unit, "===How many Dirichlet boundaries for hw?===")
-      READ (in_unit,*)  inputs%hw_nb_Dir_bdy
-      CALL read_until(in_unit, "===List of Dirichlet boundaries for hw?===")
-      ALLOCATE(inputs%hw_Dir_list(inputs%hw_nb_Dir_bdy))
-      READ (in_unit,*) inputs%hw_Dir_list
-      CALL read_until(in_unit, "===Lambda for SGN model===")
-      READ (in_unit,*) inputs%lambdaSGN
-    END SELECT
-
- CLOSE(in_unit)
-END SUBROUTINE read_my_data
+    CLOSE(in_unit)
+  END SUBROUTINE read_my_data
 END MODULE input_data

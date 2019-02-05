@@ -617,7 +617,7 @@ CONTAINS
                 IF (rr(1,i) .LE. 1.d0) THEN
                    vv(i) = 3.d0
                 ELSE
-                  vv(i) = 0
+                   vv(i) = 0
                 END IF
              END DO
           END IF
@@ -641,7 +641,7 @@ CONTAINS
                 IF (rr(1,i) .LE. 1.d0) THEN
                    vv(i) = 3.d0**2
                 ELSE
-                  vv(i) = 0
+                   vv(i) = 0
                 END IF
                 vv(i) = MAX(htilde - aux(i),0.d0)
                 vv(i) = vv(i) * vv(i)

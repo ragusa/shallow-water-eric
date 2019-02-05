@@ -72,25 +72,25 @@ PROGRAM shallow_water
      uo = un  !t
      !===Step 1
      CALL euler(uo,un) !t
-     write(*,*) 'time ', inputs%time, inputs%dt, ' Mass2', SUM(uo(1,:)*lumped), SUM(un(1,:)*lumped)
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass2', SUM(uo(1,:)*lumped), SUM(un(1,:)*lumped)
      !if (ABS(SUM(uo(1,:)*lumped)-SUM(un(1,:)*lumped))/SUM(uo(1,:)*lumped).ge.1d-7) STOP
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
      !===Step 2
      inputs%time=to+inputs%dt
      CALL euler(un,ui) !t+dt
-     write(*,*) 'time ', inputs%time, inputs%dt, ' Mass3', SUM(un(1,:)*lumped), SUM(ui(1,:)*lumped)
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass3', SUM(un(1,:)*lumped), SUM(ui(1,:)*lumped)
      un = (3*uo+ ui)/4
      CALL bdy(un,inputs%time+inputs%dt/2) !t+dt/2
-     write(*,*) 'time ', inputs%time, inputs%dt, ' Mass4', SUM(ui(1,:)*lumped), SUM(un(1,:)*lumped)
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass4', SUM(ui(1,:)*lumped), SUM(un(1,:)*lumped)
 
      !===Step 3
      inputs%time =  to + inputs%dt/2
      CALL euler(un,ui) !t+dt/2
-     write(*,*) 'time ', inputs%time, inputs%dt, ' Mass5', SUM(un(1,:)*lumped), SUM(ui(1,:)*lumped)
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass5', SUM(un(1,:)*lumped), SUM(ui(1,:)*lumped)
      un = (uo+ 2*ui)/3
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
      inputs%time = to + inputs%dt
-     write(*,*) 'time ', inputs%time, inputs%dt, ' Mass6', SUM(ui(1,:)*lumped), SUM(un(1,:)*lumped)
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass6', SUM(ui(1,:)*lumped), SUM(un(1,:)*lumped)
 
      !===Monitor convergence
      SELECT CASE(inputs%type_test)
@@ -120,56 +120,44 @@ PROGRAM shallow_water
                 SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
                 * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n)))
         END DO
-      CASE(17)
-         IF (inputs%time.LE.inputs%dt) THEN
-            DO n = 1, 8
-               OPEN(70+n,FILE=TRIM(ADJUSTL(bar_file(n))), FORM='formatted')
-            END DO
-         END IF
-         DO n = 1, 8
+     CASE(17)
+        IF (inputs%time.LE.inputs%dt) THEN
+           DO n = 1, 8
+              OPEN(70+n,FILE=TRIM(ADJUSTL(bar_file(n))), FORM='formatted')
+           END DO
+        END IF
+        DO n = 1, 8
            ! convert data to centimeters
-            WRITE(70+n,*) inputs%time, &
-                 100.d0 * SUM(un(1,mesh%jj(:,bar_m(n))) &
-                 * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n))), &
-                 100.d0 * SUM((un(1,mesh%jj(:,bar_m(n)))+ bath(mesh%jj(:,bar_m(n)))) &
-                 * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n)))
-         END DO
+           WRITE(70+n,*) inputs%time, &
+                100.d0 * SUM(un(1,mesh%jj(:,bar_m(n))) &
+                * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n))), &
+                100.d0 * SUM((un(1,mesh%jj(:,bar_m(n)))+ bath(mesh%jj(:,bar_m(n)))) &
+                * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n)))
+        END DO
      END SELECT
 
      ! for plotting movies
      IF (inputs%want_movie) THEN
-       SELECT CASE(inputs%type_test)
-       CASE(14,15,16,17,18)
-         IF (0.d0 .LE. inputs%time) THEN
-           IF (inputs%time.GE.t_frame-1.d-10) THEN
-             kit=kit+1
-             t_frame = t_frame+dt_frame
-             DO i = 1, SIZE(bath)
-               IF (un(1,i).LE. 1.d-4*hmax0) THEN
-                 hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
-               ELSE
-                 hmovie(i) = un(1,i)+bath(i)
-               END IF
-             END DO
+        SELECT CASE(inputs%type_test)
+        CASE(14,15,16,17,18)
+           IF (0.d0 .LE. inputs%time) THEN
+              IF (inputs%time.GE.t_frame-1.d-10) THEN
+                 kit=kit+1
+                 t_frame = t_frame+dt_frame
+                 DO i = 1, SIZE(bath)
+                    IF (un(1,i).LE. 1.d-4*hmax0) THEN
+                       hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
+                    ELSE
+                       hmovie(i) = un(1,i)+bath(i)
+                    END IF
+                 END DO
 
-             WRITE(frame,'(I3)') kit
-             header = 'hpz_movie_'//TRIM(ADJUSTL(frame))//'.plt'
-             CALL plot_1d(mesh%rr(1,:), hmovie, header)
-             ! header = 'h_movie_'//TRIM(ADJUSTL(frame))//'.vtk'
-             !
-             ! DO i = 1, SIZE(bath)
-             !    IF (un(1,i).LE. 1.d-4*hmax0) THEN
-             !       hmovie(i) = 0.d0
-             !    ELSE
-             !       hmovie(i) = un(1,i)
-             !    END IF
-             ! END DO
-             ! CALL plot_1d(mesh%rr(1,:), hmovie, header)
+                 WRITE(frame,'(I3)') kit
+                 header = 'hpz_movie_'//TRIM(ADJUSTL(frame))//'.plt'
+                 CALL plot_1d(mesh%rr(1,:), hmovie, header)
+              END IF
            END IF
-         END IF
-       END SELECT
-       !CALL SYSTEM('mv hpz_movie_* ANIMATION')
-       !CALL SYSTEM('./ANIMATION/animation.sh')
+        END SELECT
      END IF
 
   END DO
@@ -177,9 +165,9 @@ PROGRAM shallow_water
   WRITE(*,*) 'total time', tps, 'Time per time step and dof', tps/(it_max*mesh%np), it_max
   WRITE(*,*) 'total time in minutes', tps/60.d0
   IF (inputs%if_FGN) THEN
-    WRITE(*,*) 'Ran dispersive model'
+     WRITE(*,*) 'Ran dispersive model'
   ELSE
-    WRITE(*,*) 'Ran shallow water model'
+     WRITE(*,*) 'Ran shallow water model'
   END IF
 
   CALL compute_errors
@@ -197,21 +185,21 @@ PROGRAM shallow_water
 
   SELECT CASE(inputs%type_test)
   CASE(14)
-    !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
-    write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
-    write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
-    CALL SYSTEM('./gnu_plot_runup.sh '//TRIM(test_name)//' '//TRIM(test_int))
+     !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
+     WRITE (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
+     WRITE(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
+     CALL SYSTEM('./gnu_plot_runup.sh '//TRIM(test_name)//' '//TRIM(test_int))
   CASE(16)
-  !   !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
-  !   write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
-  !   write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
-  CALL SYSTEM('gnuplot -persist -p seawall.gnu')
+     !   !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
+     !   write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
+     !   write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
+     CALL SYSTEM('gnuplot -persist -p seawall.gnu')
   CASE(15)
-  CALL SYSTEM('gnuplot -persist -p steady.gnu')
+     CALL SYSTEM('gnuplot -persist -p steady.gnu')
   CASE(17)
-  CALL SYSTEM('gnuplot -persist -p bar.gnu')
+     CALL SYSTEM('gnuplot -persist -p bar.gnu')
   CASE(18)
-  CALL SYSTEM('gnuplot -persist -p slope.gnu')
+     CALL SYSTEM('gnuplot -persist -p slope.gnu')
   END SELECT
 CONTAINS
 
@@ -221,7 +209,7 @@ CONTAINS
     USE boundary_conditions
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(IN) :: u0
-    CALL compute_dij(u0,.false.)
+    CALL compute_dij(u0,.FALSE.)
     inputs%dt = inputs%CFL*1/MAXVAL(ABS(dij%aa(diag))/lumped)
   END SUBROUTINE COMPUTE_DT
 
@@ -254,14 +242,14 @@ CONTAINS
     REAL(KIND=8) :: err, errb, norm, normb, waterh_ref = 0.d0
 
     IF (inputs%if_FGN) THEN
-     norm  = SUM(mesh%gauss%rj)
-     CALL ns_l1 (mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
-     WRITE(*,*) ' L1-norm (h^2-heta)/max_waterh**2', (err/norm)/inputs%max_water_h**2
-     CALL ns_0(mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
-     WRITE(*,*) ' L2-norm (h^2-heta)/max_waterh**2', (err/sqrt(norm))/inputs%max_water_h**2
-     WRITE(*,*) ' Linfty  (h^2-heta)/max_waterh**2', &
-          MAXVAL(ABS(un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2)
-     CALL plot_1d(mesh%rr(1,:), (un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2, 'err_h2_heta.plt')
+       norm  = SUM(mesh%gauss%rj)
+       CALL ns_l1 (mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
+       WRITE(*,*) ' L1-norm (h^2-heta)/max_waterh**2', (err/norm)/inputs%max_water_h**2
+       CALL ns_0(mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
+       WRITE(*,*) ' L2-norm (h^2-heta)/max_waterh**2', (err/SQRT(norm))/inputs%max_water_h**2
+       WRITE(*,*) ' Linfty  (h^2-heta)/max_waterh**2', &
+            MAXVAL(ABS(un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2)
+       CALL plot_1d(mesh%rr(1,:), (un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2, 'err_h2_heta.plt')
     END IF
 
     SELECT CASE(inputs%type_test)
@@ -392,4 +380,4 @@ CONTAINS
     END DO
     CLOSE(unit)
   END SUBROUTINE plot_1d
-END PROGRAM
+END PROGRAM shallow_water

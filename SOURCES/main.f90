@@ -8,67 +8,59 @@ PROGRAM shallow_water
   USE fem_tn
   USE mesh_interpolation
   IMPLICIT NONE
-  REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: rk, un, ui, uo
-  REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie, hetamovie, time_steps
-  INTEGER                                   :: it, it_max, kit=0,counter
-  REAL(KIND=8)                              :: tps, to, q1, q2, q3, dt_frame, t_frame=0.d0
-  REAL(KIND=8)                              :: hmax0
-  INTEGER :: nb_frame=200, i, n
-  CHARACTER(LEN=200) :: header, etaHeader
+  REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: rk, un, ui, uo, uinit
+  REAL(KIND=8), DIMENSION(:),   ALLOCATABLE :: hmovie
+  INTEGER                                   :: it, it_max, kit=0
+  REAL(KIND=8)                              :: tps, to, q1=0.d0, q2, q3, dt_frame, t_frame=0.d0
+  REAL(KIND=8)                              :: hmax0, norm, dt0
+  INTEGER :: nb_frame=199, i, n
+  CHARACTER(LEN=200) :: header, test_name, test_int
   CHARACTER(LEN=3)   :: frame
+  LOGICAL :: once=.TRUE.
+
+  inputs%syst_size=k_dim+1+2 !For shallow water+ fake GN
   CALL read_my_data('data')
   CALL construct_mesh
   CALL construct_matrices
-  inputs%syst_size=k_dim+1 !For shallow water
-
-  !IF (inputs%type_test==14) THEN
-  !  nb_frame=14
-  !END IF
-  SELECT CASE(inputs%type_test)
-  CASE(8,13,14,15,16,17,18,19,20,21)
-     inputs%syst_size=k_dim + 3 !For 2d SGN model: h, hu, hv, h*eta, hw. (Eric T.)
-  END SELECT
 
 
   ALLOCATE(rk(inputs%syst_size,mesh%np),un(inputs%syst_size,mesh%np),&
-       ui(inputs%syst_size,mesh%np),uo(inputs%syst_size,mesh%np),hmovie(mesh%np),hetamovie(mesh%np))
+       ui(inputs%syst_size,mesh%np),uo(inputs%syst_size,mesh%np),hmovie(mesh%np),&
+       uinit(inputs%syst_size,mesh%np))
   inputs%time =0.d0
   CALL init(un)
+  uinit = un
+
+
   hmax0 = MAXVAL(un(1,:))
   IF (k_dim==1) THEN
      CALL plot_1d(mesh%rr(1,:), bath, 'bath.plt')
-     CALL plot_1d(mesh%rr(1,:), un(1,:), 'hinit.plt')
-     CALL plot_1d(mesh%rr(1,:), un(1,:)+bath, 'hpluszinit.plt')
-     CALL plot_1d(mesh%rr(1,:), un(2,:), 'huinit.plt')
-     CALL plot_1d(mesh%rr(1,:), un(3,:), 'hetainit.plt')
-     CALL plot_1d(mesh%rr(1,:), un(4,:), 'hwinit.plt')
+     CALL plot_1d(mesh%rr(1,:), uinit(1,:), 'hinit.plt')
+     CALL plot_1d(mesh%rr(1,:), uinit(1,:)+bath, 'hpluszinit.plt')
+     CALL plot_1d(mesh%rr(1,:), uinit(2,:), 'qxinit.plt')
+     CALL plot_1d(mesh%rr(1,:), uinit(3,:), 'hetainit.plt')
+     CALL plot_1d(mesh%rr(1,:), uinit(4,:), 'homegainit.plt')
   ELSE
      CALL plot_scalar_field(mesh%jj, mesh%rr, bath, 'bath.plt')
      CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'hinit.plt')
   END IF
-  ! IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
-  ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(4,:), 'h_eta_init.plt')
-  ! CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'h_u_init.plt')
-  ! END IF
-
   CALL COMPUTE_DT(un)
 
-  SELECT CASE(inputs%type_test)
-  CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20,21)
-     dt_frame = inputs%Tfinal/(nb_frame-1)
+
+  dt_frame = inputs%Tfinal/(nb_frame-1)
+
+  IF (k_dim==2) THEN
+     ! output bath in vtk format
      CALL vtk_2d(mesh, bath, 10, 'bath.vtk')
-  END SELECT
-  ! output exact solution at Tfinal for soliton with flat bath
-  IF (inputs%type_test==13 .OR. inputs%type_test==20) THEN
+     ! output exact solution at Tfinal
      CALL vtk_2d(mesh, sol_anal(1,mesh%rr,inputs%Tfinal),11,'hexact.vtk')
+     ! for initial time
+     CALL vtk_2d(mesh, sol_anal(1,mesh%rr,0.d0),13,'hinit.vtk')
+     CALL vtk_2d(mesh, bath + sol_anal(1,mesh%rr,0.d0),14,'hpzinit.vtk')
   END IF
-  ! for initial time
-  CALL vtk_2d(mesh, sol_anal(1,mesh%rr,0.d0),51,'h_init.vtk')
-  CALL vtk_2d(mesh, bath + sol_anal(1,mesh%rr,0.d0),52,'hPz_init.vtk')
-  !STOP
 
+  WRITE(*,*) ' Mass1', SUM(un(1,:)*lumped)
 
-  tps = user_time()
   it_max = INT(inputs%Tfinal/inputs%dt)
   IF (it_max==0) THEN
      it_max = 1
@@ -76,176 +68,176 @@ PROGRAM shallow_water
   ELSE
      inputs%dt = inputs%Tfinal/it_max
   END IF
-
+  dt0 = inputs%dt
 
   !DO it = 1, it_max
-  counter = 0
   DO WHILE(inputs%time<inputs%Tfinal)
-     counter = counter + 1
-     !===Paraboloid seems to work with inputs%htiny=1d-4
-     !inputs%htiny=aspect_ratio*inputs%gravity*inputs%dt**2/2
-     !inputs%htiny = 10*aspect_ratio**2*MINVAL(lumped)/max_water_h
-     !inputs%htiny = 80*aspect_ratio**2*MINVAL(lumped)/max_water_h
-     !write(*,*) ' htiny', inputs%htiny
-     IF (inputs%type_test==9) THEN
-        inputs%htiny = 1.d-3
-        inputs%dt=2.5d-2
-     ELSE
-        CALL COMPUTE_DT(un)
-     END IF
+     CALL COMPUTE_DT(un)
+     !write(*,*) 'time ', inputs%time, inputs%dt,' Mass1', SUM(un(1,:)*lumped)
+     !IF (inputs%dt<0.01*dt0) THEN
+     !   WRITE(*,*) ' Time step decresases too much'
+     !   STOP
+     !END IF
 
      to = inputs%time
      uo = un  !t
      !===Step 1
      CALL euler(uo,un) !t
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass2', SUM(uo(1,:)*lumped), SUM(un(1,:)*lumped)
+     !if (ABS(SUM(uo(1,:)*lumped)-SUM(un(1,:)*lumped))/SUM(uo(1,:)*lumped).ge.1d-7) STOP
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
-
      !===Step 2
      inputs%time=to+inputs%dt
      CALL euler(un,ui) !t+dt
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass3', SUM(un(1,:)*lumped), SUM(ui(1,:)*lumped)
      un = (3*uo+ ui)/4
      CALL bdy(un,inputs%time+inputs%dt/2) !t+dt/2
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass4', SUM(ui(1,:)*lumped), SUM(un(1,:)*lumped)
 
      !===Step 3
      inputs%time =  to + inputs%dt/2
      CALL euler(un,ui) !t+dt/2
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass5', SUM(un(1,:)*lumped), SUM(ui(1,:)*lumped)
      un = (uo+ 2*ui)/3
      CALL bdy(un,inputs%time+inputs%dt) !t+dt
      inputs%time = to + inputs%dt
-     WRITE(*,*) 'time ', inputs%time, inputs%dt
-!!!! outputing time steps to file!!!!
-     IF (inputs%lambdaSGN > 0.d0) THEN
-        OPEN (unit = 7, file = "time_steps_GN.txt")
-        WRITE (7,*) inputs%dt
-     ELSE
-        OPEN (unit = 7, file = "time_steps_SW.txt")
-        WRITE (7,*) inputs%dt
-     END IF
+     WRITE(*,*) 'time ', inputs%time, inputs%dt, ' Mass6', SUM(ui(1,:)*lumped), SUM(un(1,:)*lumped)
 
+     !===Monitor convergence
      SELECT CASE(inputs%type_test)
-     CASE(1,2,10)
-        CALL ns_l1(mesh, un(2,:), q1)
-        CALL ns_l1(mesh, un(3,:), q2)
-        CALL ns_l1(mesh, un(1,:)*SQRT(un(1,:)), q3)
-        WRITE(10,*) inputs%time, 0.5d0*(q1+q2)/(inputs%gravity*q3)
+     CASE(11)
+        hmovie = sol_anal(1,mesh%rr,inputs%time)
+        CALL ns_l1 (mesh, hmovie-un(1,:), q3)
+        CALL ns_l1 (mesh, hmovie, q2)
+        WRITE(11,*) 1/inputs%time, q3/q2
      END SELECT
 
-     IF (inputs%type_test==9) THEN !Malpasset gauges
-        IF (inputs%time.LE.inputs%dt) THEN
-           DO n = 1, 12
-              OPEN(10+n,FILE=TRIM(ADJUSTL(malpasset_file(n))), FORM='formatted')
-              WRITE(*,*) TRIM(ADJUSTL(malpasset_title(n))), malpasset_rr(:,n)
-              WRITE(10+n,*) TRIM(ADJUSTL(malpasset_title(n))), malpasset_rr(:,n)
-           END DO
-        END IF
-        DO n = 1, 12
-           WRITE(10+n,*) inputs%time, &
-                SUM((un(1,mesh%jj(:,malpasset_m(n)))) &
-                * FE_interpolation(mesh,malpasset_m(n),malpasset_rr(1:2,n))), &
-                SUM((un(1,mesh%jj(:,malpasset_m(n)))+ bath(mesh%jj(:,malpasset_m(n)))) &
-                * FE_interpolation(mesh,malpasset_m(n),malpasset_rr(1:2,n)))
-        END DO
+     IF (once) THEN
+        tps = user_time()
+        once=.FALSE.
      END IF
 
-     IF (inputs%type_test==16) THEN !seawall gauges
+     SELECT CASE(inputs%type_test) !seawall gauges
+     CASE(16)
         IF (inputs%time.LE.inputs%dt) THEN
            DO n = 1, 7
-              OPEN(20+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
-              ! WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
-              ! WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), seawall_rr(:,n)
-              !WRITE(*,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
-              !WRITE(20+n,*) TRIM(ADJUSTL(seawall_title(n))), '  t  ', 'h  ', 'hpz'
+              OPEN(60+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
            END DO
         END IF
         DO n = 1, 7
-           WRITE(20+n,*) inputs%time, &
+           WRITE(60+n,*) inputs%time, &
                 SUM(un(1,mesh%jj(:,seawall_m(n))) &
-                * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n))), &
+                * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n))), &
                 SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
-                * FE_interpolation(mesh,seawall_m(n),seawall_rr(1:2,n)))
+                * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n)))
         END DO
-     END IF
-
-     SELECT CASE(inputs%type_test)
-     CASE(5,6,8,9,11,12,13,14,15,16,17,18,19,20,21)
-        IF (0.d0 .LE. inputs%time) THEN
-           IF (inputs%time.GE.t_frame-1.d-10) THEN
-              kit=kit+1
-              t_frame = t_frame+dt_frame
-              DO i = 1, SIZE(bath)
-                 IF (un(1,i).LE. 1.d-4*hmax0) THEN
-                    hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
-                    IF (inputs%lambdaSGN > 0.d0) THEN
-                       hetamovie(i) = -1.d-7*hmax0+bath(i)
-                    END IF
-                 ELSE
-                    hmovie(i) = un(1,i)+bath(i)
-                    IF (inputs%lambdaSGN > 0.d0) THEN
-                       hetamovie(i) = un(4,i)+bath(i)
-                    END IF
-                 END IF
-              END DO
-
-              WRITE(frame,'(I3)') kit
-              header = 'hpz_'//TRIM(ADJUSTL(frame))//'.vtk'
-              etaHeader = 'hetapz_'//TRIM(ADJUSTL(frame))//'.vtk'
-              CALL vtk_2d(mesh,hetamovie,13,etaHeader)
-              CALL vtk_2d(mesh, hmovie, 10, header)
-              header = 'h_'//TRIM(ADJUSTL(frame))//'.vtk'
-              etaHeader='heta_'//TRIM(ADJUSTL(frame))//'.vtk'
-
-              DO i = 1, SIZE(bath)
-                 IF (un(1,i).LE. 1.d-4*hmax0) THEN
-                    hmovie(i) = 0.d0
-                    IF (inputs%lambdaSGN > 0.d0) THEN
-                       hetamovie(i) = 0.d0
-                    END IF
-                 ELSE
-                    hmovie(i) = un(1,i)
-                    IF (inputs%lambdaSGN > 0.d0) THEN
-                       hetamovie(i) = un(4,i)
-                    END IF
-                 END IF
-                 !hetamovie = un(4,:)
-              END DO
-              CALL vtk_2d(mesh, hmovie, 10, header)
-              IF (inputs%lambdaSGN > 0.d0) THEN
-                 CALL vtk_2d(mesh,hetamovie,13,etaHeader)
-              END IF
-              !CALL plot_scalar_field(mesh%jj, mesh%rr, hmovie, 'h_'//trim(adjustl(frame))//'.plt')
-           END IF
+     CASE(17)
+        IF (inputs%time.LE.inputs%dt) THEN
+           DO n = 1, 8
+              OPEN(70+n,FILE=TRIM(ADJUSTL(bar_file(n))), FORM='formatted')
+           END DO
         END IF
+        DO n = 1, 8
+           ! convert data to centimeters
+           WRITE(70+n,*) inputs%time, &
+                100.d0 * SUM(un(1,mesh%jj(:,bar_m(n))) &
+                * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n))), &
+                100.d0 * SUM((un(1,mesh%jj(:,bar_m(n)))+ bath(mesh%jj(:,bar_m(n)))) &
+                * FE_interp_1d(mesh,bar_m(n),bar_rr(1,n)))
+        END DO
      END SELECT
 
-  END DO
+     ! for plotting movies in 1D and 2D
+     IF (inputs%want_movie) THEN
+        SELECT CASE(inputs%type_test)
+        CASE(14,15,16,17,18) ! 1D cases
+           IF (0.d0 .LE. inputs%time) THEN
+              IF (inputs%time.GE.t_frame-1.d-10) THEN
+                 kit=kit+1
+                 t_frame = t_frame+dt_frame
+                 DO i = 1, SIZE(bath)
+                    IF (un(1,i).LE. 1.d-4*hmax0) THEN
+                       hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
+                    ELSE
+                       hmovie(i) = un(1,i)+bath(i)
+                    END IF
+                 END DO
 
+                 WRITE(frame,'(I3)') kit
+                 header = 'hpz_movie_'//TRIM(ADJUSTL(frame))//'.plt'
+                 CALL plot_1d(mesh%rr(1,:), hmovie, header)
+              END IF
+           END IF
+        CASE(8) ! 2D cases
+           IF (0.d0 .LE. inputs%time) THEN
+              IF (inputs%time.GE.t_frame-1.d-10) THEN
+                 kit=kit+1
+                 t_frame = t_frame+dt_frame
+                 DO i = 1, SIZE(bath)
+                    IF (un(1,i).LE. 1.d-4*hmax0) THEN
+                       hmovie(i) = -1.d-7*hmax0+bath(i) !0.32
+                    ELSE
+                       hmovie(i) = un(1,i)+bath(i)
+                    END IF
+                 END DO
+
+                 WRITE(frame,'(I3)') kit
+                 header = 'hpz_movie_'//TRIM(ADJUSTL(frame))//'.vtk'
+                 CALL vtk_2d(mesh, hmovie, 33, header)
+              END IF
+           END IF
+        END SELECT
+     END IF
+
+  END DO
   tps = user_time() - tps
   WRITE(*,*) 'total time', tps, 'Time per time step and dof', tps/(it_max*mesh%np), it_max
   WRITE(*,*) 'total time in minutes', tps/60.d0
-  WRITE(*,*) 'Total iterations', counter
-  ALLOCATE(time_steps(counter))
-  !OPEN(unit = 7, file = 'time_steps_SW.txt', status='old')
-  !READ(7,*) time_steps
-  !WRITE(*,*) time_steps(1)
-  !WRITE(*,*) 'Average Time Step', SUM(time_steps(:))/SIZE(time_steps(:))
-  !WRITE(*,*) 'Number of elemets', mesh%me
-  WRITE(*,*) 'Number of nodes  ', mesh%np
-  IF (inputs%lambdaSGN > 0.d0) THEN
-     WRITE(*,*) 'You ran dispersive model.'
+  IF (inputs%if_FGN) THEN
+     WRITE(*,*) 'Ran dispersive model'
   ELSE
-     WRITE(*,*) 'You ran shallow water model.'
+     WRITE(*,*) 'Ran shallow water model'
   END IF
 
   CALL compute_errors
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:)+bath, 'HplusZ.plt')
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'h.plt')
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'qx.plt')
-  CALL plot_scalar_field(mesh%jj, mesh%rr, un(3,:), 'qy.plt')
-  ! IF (inputs%type_test==13 .OR. inputs%type_test==14) THEN
-  !   CALL plot_scalar_field(mesh%jj,mesh%rr,un(4,:),'h_eta.plt')
-  !   CALL plot_scalar_field(mesh%jj,mesh%rr,un(5,:),'h_w.plt')
-  ! END IF
+  IF (k_dim==2) THEN
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:)+bath, 'HplusZ.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(1,:), 'h.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(2,:), 'qx.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(3,:), 'qy.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(4,:), 'heta.plt')
+     CALL plot_scalar_field(mesh%jj, mesh%rr, un(5,:), 'hw.plt')
+  ELSE
+     CALL plot_1d(mesh%rr(1,:), un(1,:)+bath, 'HplusZ.plt')
+     CALL plot_1d(mesh%rr(1,:), un(1,:)-sol_anal(1,mesh%rr,inputs%time), 'errh.plt')
+     CALL plot_1d(mesh%rr(1,:), un(1,:), 'h.plt')
+     CALL plot_1d(mesh%rr(1,:), un(1,:)**2, 'h_h.plt')
+     CALL plot_1d(mesh%rr(1,:), un(2,:), 'qx.plt')
+     CALL plot_1d(mesh%rr(1,:), un(3,:), 'h_eta.plt')
+     CALL plot_1d(mesh%rr(1,:), un(4,:), 'h_w.plt')
+     CALL plot_1d(mesh%rr(1,:), un(1,:)*velocity(1,:)**2/2, 'rho_e.plt')
+     CALL plot_1d(mesh%rr(1,:), un(2,:)-sol_anal(2,mesh%rr,inputs%time), 'errqx.plt')
+  END IF
 
+  ! first guess is that these directories will be messed up
+  SELECT CASE(inputs%type_test)
+  CASE(14)
+     !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
+     WRITE (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
+     WRITE(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
+     CALL SYSTEM('./gnu_plot_runup.sh '//TRIM(test_name)//' '//TRIM(test_int))
+  CASE(16)
+     !   !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
+     !   write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
+     !   write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
+     CALL SYSTEM('gnuplot -persist -p seawall.gnu')
+  CASE(15)
+     CALL SYSTEM('gnuplot -persist -p steady.gnu')
+  CASE(17)
+     CALL SYSTEM('gnuplot -persist -p bar.gnu')
+  CASE(18)
+     CALL SYSTEM('gnuplot -persist -p slope.gnu')
+  END SELECT
 CONTAINS
 
   SUBROUTINE COMPUTE_DT(u0)
@@ -254,7 +246,7 @@ CONTAINS
     USE boundary_conditions
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(inputs%syst_size,mesh%np), INTENT(IN) :: u0
-    CALL compute_dij(u0)
+    CALL compute_dij(u0,.FALSE.)
     inputs%dt = inputs%CFL*1/MAXVAL(ABS(dij%aa(diag))/lumped)
   END SUBROUTINE COMPUTE_DT
 
@@ -262,15 +254,20 @@ CONTAINS
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(:,:), INTENT(OUT) :: uu
     REAL(KIND=8), INTENT(IN) :: t
-    IF (SIZE(h_js_D).NE.0)  uu(1,h_js_D)  = sol_anal(1,mesh%rr(:,h_js_D),t)
-    IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
-    IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
-    ! we add boundary conditions to heta and hw
-    SELECT CASE(inputs%type_test)
-    CASE(5,8,9,11,12,13,14,15,16,17,18,19,20,21)
-       IF (SIZE(heta_js_D).NE.0) uu(4,heta_js_D) = sol_anal(4,mesh%rr(:,heta_js_D),t)
-       IF (SIZE(hw_js_D).NE.0) uu(5,hw_js_D) = sol_anal(5,mesh%rr(:,hw_js_D),t)
-    END SELECT
+    REAL(KIND=8), DIMENSION(2,mesh%np) :: vv
+    INTEGER :: k
+    IF (k_dim==1) THEN
+       IF (SIZE(h_js_D).NE.0)  uu(1,h_js_D)  = sol_anal(1,mesh%rr(:,h_js_D),t)
+       IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
+       IF (SIZE(h_js_D).NE.0)  uu(3,h_js_D)  = sol_anal(3,mesh%rr(:,h_js_D),t)
+       IF (SIZE(h_js_D).NE.0) uu(4,h_js_D)  = sol_anal(4,mesh%rr(:,h_js_D),t)
+    ELSE
+       IF (SIZE(h_js_D).NE.0)  uu(1,h_js_D)  = sol_anal(1,mesh%rr(:,h_js_D),t)
+       IF (SIZE(ux_js_D).NE.0) uu(2,ux_js_D) = sol_anal(2,mesh%rr(:,ux_js_D),t)
+       IF (SIZE(uy_js_D).NE.0) uu(3,uy_js_D) = sol_anal(3,mesh%rr(:,uy_js_D),t)
+       IF (SIZE(h_js_D).NE.0)  uu(4,h_js_D)  = sol_anal(4,mesh%rr(:,h_js_D),t)
+       IF (SIZE(h_js_D).NE.0) uu(5,h_js_D)  = sol_anal(5,mesh%rr(:,h_js_D),t)
+    END IF
   END SUBROUTINE bdy
 
   FUNCTION user_time() RESULT(time)
@@ -287,64 +284,87 @@ CONTAINS
     REAL(KIND=8), DIMENSION(k_dim,mesh%gauss%l_G*mesh%me):: rr_gauss
     REAL(KIND=8), DIMENSION(mesh%gauss%l_G*mesh%me)  :: uexact
     REAL(KIND=8), DIMENSION(mesh%np)                 :: zero
-    REAL(KIND=8) :: err, errb, norm, normb
+    REAL(KIND=8) :: err, errb, norm, normb, waterh_ref = 0.d0
+
+    IF (inputs%if_FGN) THEN
+       norm  = SUM(mesh%gauss%rj)
+       CALL ns_l1 (mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
+       WRITE(*,*) ' L1-norm (h^2-heta)/max_waterh**2', (err/norm)/inputs%max_water_h**2
+       CALL ns_0(mesh, un(1,:)**2-un(inputs%syst_size-1,:), err)
+       WRITE(*,*) ' L2-norm (h^2-heta)/max_waterh**2', (err/SQRT(norm))/inputs%max_water_h**2
+       WRITE(*,*) ' Linfty  (h^2-heta)/max_waterh**2', &
+            MAXVAL(ABS(un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2)
+       CALL plot_1d(mesh%rr(1,:), (un(1,:)**2-un(inputs%syst_size-1,:))/inputs%max_water_h**2, 'err_h2_heta.plt')
+    END IF
+
     SELECT CASE(inputs%type_test)
-    CASE(3,4,5,6,7,11,12,13)
+    CASE(3,4,5,6,7,11,12,13,15)
+       IF (inputs%type_test==13) THEN
+          waterh_ref = max_water_h
+       END IF
+
+       hh = un(1,:) - waterh_ref
        CALL r_gauss(rr_gauss)
-       uexact = sol_anal(1,rr_gauss,inputs%time)
+       uexact = sol_anal(1,rr_gauss,inputs%time) - waterh_ref
        zero = 0.d0
-       CALL ns_anal_l1(mesh, un(1,:), uexact, err)
+       CALL ns_anal_l1(mesh, hh, uexact, err)
        CALL ns_anal_l1(mesh, zero, uexact, norm)
        WRITE(*,*) ' Total number of elements', mesh%me
        WRITE(*,*) ' Total number of points  ', mesh%np
-       WRITE(*,*) ' Relative L1 error on h (Gaussian)', err/norm
-       !hh = sol_anal(1,mesh%rr,inputs%time)
+       WRITE(*,*) ' Relative L1 error on h (Gaussian)', err/norm!, err
        !CALL ns_l1 (mesh, hh-un(1,:), err)
        !CALL ns_l1 (mesh, hh, norm)
        !WRITE(*,*) ' Relative L1 error on h', err/norm
 
-       CALL ns_anal_0(mesh, un(1,:), uexact, err)
+       CALL ns_anal_0(mesh, hh, uexact, err)
        CALL ns_anal_0(mesh, zero, uexact, norm)
-       WRITE(*,*) ' Relative L2 error on h (Gaussian)', err/norm
-       !hh = sol_anal(1,mesh%rr,inputs%time)
-       !CALL ns_0 (mesh, hh-un(1,:), err)
-       !CALL ns_0 (mesh, hh, norm)
-       !WRITE(*,*) ' Relative L2 error on h', err/norm
+       WRITE(*,*) ' Relative L2 error on h (Gaussian)', err/norm!, err
 
+       hh = un(1,:)-sol_anal(1,mesh%rr,inputs%time)
+       err = MAXVAL(ABS(hh))
+       norm = MAXVAL(ABS(sol_anal(1,mesh%rr,inputs%time)-waterh_ref))
+       WRITE(*,*) ' Relative Linfty error on h       ', err/norm, waterh_ref!, err
 
        uexact = sol_anal(2,rr_gauss,inputs%time)
        CALL ns_anal_l1(mesh, un(2,:), uexact, err)
        CALL ns_anal_l1(mesh, zero, uexact, norm)
-       uexact = sol_anal(3,rr_gauss,inputs%time)
-       CALL ns_anal_l1(mesh, un(3,:), uexact, errb)
-       CALL ns_anal_l1(mesh, zero, uexact, normb)
-       !WRITE(*,*) ' Relative L1 error on q (Gaussian)', (err+errb)/(norm+normb)
-       !hh = sol_anal(2,mesh%rr,inputs%time)
-       !CALL ns_l1 (mesh, hh-un(2,:), err)
-       !CALL ns_l1 (mesh, hh, norm)
-       !hh = sol_anal(3,mesh%rr,inputs%time)
-       !CALL ns_l1 (mesh, hh-un(3,:), errb)
-       !CALL ns_l1 (mesh, hh, normb)
-       !WRITE(*,*) ' Relative L1 error on q', (err+errb)/(norm+normb)
+
+       WRITE(*,*) ' Relative L1 error on Qx (Gaussian)', (err)/(norm)!, (err)
 
        uexact = sol_anal(2,rr_gauss,inputs%time)
        CALL ns_anal_0(mesh, un(2,:), uexact, err)
        CALL ns_anal_0(mesh, zero, uexact, norm)
-       uexact = sol_anal(3,rr_gauss,inputs%time)
-       CALL ns_anal_0(mesh, un(3,:), uexact, err)
-       CALL ns_anal_0(mesh, zero, uexact, normb)
-       !WRITE(*,*) ' Relative L2 error on q (Gaussian)', (err+errb)/(norm+normb)
-       !hh = sol_anal(2,mesh%rr,inputs%time)
-       !CALL ns_0 (mesh, hh-un(2,:), err)
-       !CALL ns_0 (mesh, hh, norm)
-       !hh = sol_anal(3,mesh%rr,inputs%time)
-       !CALL ns_0 (mesh, hh-un(3,:), errb)
-       !CALL ns_0 (mesh, hh, normb)
-       !WRITE(*,*) ' Relative L2 error on q', (err+errb)/(norm+normb)
+       WRITE(*,*) ' Relative L2 error on Qx (Gaussian)', (err)/(norm)!, (err)
+
+       hh = ABS(un(2,:)-sol_anal(2,mesh%rr,inputs%time))
+       err = MAXVAL(hh)
+       hh = ABS(sol_anal(2,mesh%rr,inputs%time))
+       norm = MAXVAL(hh)
+       WRITE(*,*) ' Relative Linfty error on Qx       ', err/norm!, err
+
+       IF (k_dim==2) THEN
+          uexact = sol_anal(3,rr_gauss,inputs%time)
+          CALL ns_anal_l1(mesh, un(3,:), uexact, err)
+          CALL ns_anal_l1(mesh, zero, uexact, norm)
+
+          WRITE(*,*) ' Relative L1 error on Qy (Gaussian)', (err)/(norm)!, (err)
+
+          uexact = sol_anal(3,rr_gauss,inputs%time)
+          CALL ns_anal_0(mesh, un(3,:), uexact, err)
+          CALL ns_anal_0(mesh, zero, uexact, norm)
+          WRITE(*,*) ' Relative L2 error on Qy (Gaussian)', (err)/(norm)!, (err)
+
+          hh = ABS(un(3,:)-sol_anal(3,mesh%rr,inputs%time))
+          err = MAXVAL(hh)
+          hh = ABS(sol_anal(3,mesh%rr,inputs%time))
+          norm = MAXVAL(hh)
+          WRITE(*,*) ' Relative Linfty error on Qy       ', err/norm!, err
+       END IF
 
     CASE DEFAULT
        RETURN
     END SELECT
+
   END SUBROUTINE compute_errors
 
   SUBROUTINE ns_anal_mass_L1 (mesh, ff, f_anal,  t)
@@ -405,6 +425,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE r_gauss
+
   SUBROUTINE plot_1d(rr,un,file)
     IMPLICIT NONE
     REAL(KIND=8), DIMENSION(:), INTENT(IN) :: rr, un
