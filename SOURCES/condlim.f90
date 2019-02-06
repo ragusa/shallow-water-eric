@@ -1,11 +1,7 @@
 MODULE boundary_conditions
   !in 2D
-  !5=Paraboloid
-  !9=Malpaseset
-  !10=Well balancing + friction
+  !8=Soliton overtopping conical island
   !1D
-  !11=1D accuracy test + Manning
-  !12=1D paraboloid + linear friction
   !13=1D Solitary wave
   !14=1D Solitary wave Run UP
   !15=1D mGN steady state
@@ -59,7 +55,7 @@ CONTAINS
     REAL(KIND=8) :: hh, vel, reg
     INTEGER :: n
     SELECT CASE(inputs%type_test)
-    CASE(5,9,10:18)  ! test cases that have been implemented, output error if they have not
+    CASE(8,9,10:18)  ! test cases that have been implemented, output error if they have not
        IF (k_dim==1) THEN
           DO n = 1, mesh%np
              vv(1:inputs%syst_size,1,n) = velocity(1,n)*un(1:inputs%syst_size,n)
@@ -70,6 +66,7 @@ CONTAINS
              vv(1:inputs%syst_size,2,n) = velocity(2,n)*un(1:inputs%syst_size,n)
           END DO
        END IF
+    CASE DEFAULT
        WRITE(*,*) ' BUG in flux'
        STOP
     END SELECT
@@ -96,7 +93,8 @@ CONTAINS
     REAL(KIND=8), DIMENSION(mesh%np) :: aux, rr, sechSqd, x, waterh, waterhp, waterhpp
     INTEGER :: i, k
     REAL(KIND=8) :: x0, h0, a, eta, surface, h_l1, &
-         h1, h2, slope, SS, z, Cber, q, term1, term2, term3, k_wavenumber, L
+         h1, h2, slope, SS, z, Cber, q, term1, term2, term3, k_wavenumber, L, &
+         xs, vel, htop, rcone, scone, hcone, radius
     !===For malpasset
     INTEGER, DIMENSION(3,mesh%me) :: jj_old
     REAL(KIND=8), DIMENSION(mesh%np) :: bath_old
@@ -108,6 +106,23 @@ CONTAINS
     ALLOCATE(velocity(k_dim,mesh%np))
     ALLOCATE(un_over_h(inputs%syst_size,mesh%np))
     SELECT CASE(inputs%type_test)
+
+    CASE(8) !Solitary wave around an island
+       inputs%gravity=9.81d0
+       htop=0.625d0
+       rcone=3.6d0
+       scone=4.d0
+       hcone=0.9d0
+       h0=0.32
+       max_water_h=h0
+       DO i = 1, mesh%np
+          radius = SQRT((mesh%rr(1,i)-15)**2 + (mesh%rr(2,i)-13)**2)
+          IF (radius<rcone) THEN
+             bath(i) = MIN(htop,hcone-radius/scone)
+          ELSE
+             bath(i) = 0.d0
+          END IF
+       END DO
 
     CASE(13) !===Solitary wave
        inputs%gravity=10.d0
@@ -359,11 +374,60 @@ CONTAINS
     REAL(KIND=8) :: x, x0, b, d, a, eta, h0, &
          bathi, alpha, dd, h1, h2, D_wave, htilde, slope, z, c, &
          sechSqd, hTildePrime, k_wavenumber, L, term1, term2, term3, &
-         cBer, q, Tperiod
+         cBer, q, Tperiod, xs, vel
     !===Malpasset
     REAL(KIND=8), DIMENSION(SIZE(rr,2)) :: h_old
     !===
     SELECT CASE(inputs%type_test)
+
+    CASE(8) !===Solitary wave
+       h0 = 0.32
+       alpha = 1*h0
+       xs = 15.0d0-12.96d0
+       vel = SQRT(3.d0*alpha/(4*h0**3))
+       SELECT CASE(k)
+       CASE(1)
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                vv(i) = MAX(h0+alpha/(COSH(vel*(rr(1,i)-xs))**2)&
+                     -bath(i),0.d0)
+             END DO
+          ELSE
+             vv = h0
+          END IF
+       CASE(2)
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                vv(i) = alpha/(COSH(vel*(rr(1,i)-xs))**2)
+                vv(i) = vv(i)*SQRT(inputs%gravity/h0)
+             END DO
+          ELSE
+             vv =0.d0
+          END IF
+       CASE(3) !h*v which is initalized with 0
+          vv = 0.d0
+       CASE(4) ! h*eta, which is initalized with h^2
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                vv(i) = MAX(h0+alpha/(COSH(vel*(rr(1,i)-xs))**2)&
+                     -bath(i),0.d0)
+                vv(i)=vv(i)*vv(i)
+             END DO
+          ELSE
+             vv = h0**2
+          END IF
+       CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+          IF (t.LE.1.d-14) THEN
+             DO i = 1, SIZE(rr,2)
+                vv(i) = MAX(h0+alpha/(COSH(vel*(rr(1,i)-xs))**2)&
+                     -bath(i),0.d0)
+                vv(i) = -vv(i)**2 * SQRT(inputs%gravity/h0) * alpha/(COSH(vel*(rr(1,i)-xs))**2) &
+                     * TANH(vel*(rr(1,i)-xs))
+             END DO
+          ELSE
+             vv = 0.d0
+          END IF
+       END SELECT
 
     CASE(13) !===Solitary wave
        h1 = 10.d0
@@ -693,7 +757,7 @@ CONTAINS
     sqr = SQRT(inputs%gravity*ABS(hr))
 
     SELECT CASE(inputs%type_test)
-    CASE(11,12,13,14,15,16,17,18)
+    CASE(8,11,12,13,14,15,16,17,18)
 
        x0=(2.d0*SQRT(2.d0)-1.d0)**2
        IF(hl.LE.hr) THEN

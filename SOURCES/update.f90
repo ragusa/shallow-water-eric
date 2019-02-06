@@ -203,7 +203,6 @@ CONTAINS
     DO i = 1, mesh%np
        max_nb_pt_stencil = MAX(max_nb_pt_stencil, mass%ia(i + 1) - mass%ia(i))
     END DO
-
   END SUBROUTINE construct_matrices
 
   SUBROUTINE euler(un, unext)
@@ -549,7 +548,6 @@ CONTAINS
     END DO
 
     RETURN
-
   END SUBROUTINE compute_dij
 
   SUBROUTINE compute_muij(un)
@@ -667,7 +665,7 @@ CONTAINS
     END DO
 
     SELECT CASE (inputs%type_test)
-    CASE (14, 16, 18)
+    CASE (8,14,16,18)
        CALL friction(un, rk)
     END SELECT
 
@@ -774,7 +772,7 @@ CONTAINS
     END DO
 
     SELECT CASE (inputs%type_test)
-    CASE (14, 16, 18)
+    CASE (8,14,16,18)
        CALL friction(un, rk)
     END SELECT
 
@@ -864,7 +862,7 @@ CONTAINS
 
           DO k = 1, inputs%syst_size
              fctmat(k)%aa(p) = -mc_minus_ml%aa(p)*(du(k, j) - du(k, i)) &
-                  + inputs%dt*(dij%aa(p) - dijL%aa(p) - & 
+                  + inputs%dt*(dij%aa(p) - dijL%aa(p) - &
                   (muij%aa(p) - muijL%aa(p)))*(un_over_h(k, j)*Hstarji - un_over_h(k, i)*Hstarij) &
                   + inputs%dt*(muij%aa(p) - muijL%aa(p))*(un(k, j) - un(k, i))
           END DO
@@ -1446,7 +1444,7 @@ CONTAINS
     END DO
 
     SELECT CASE (inputs%type_test)
-    CASE (14, 16, 18)
+    CASE (8,14,16,18)
        CALL friction(un, rk)
     END SELECT
 
@@ -1498,6 +1496,9 @@ CONTAINS
     ELSE
        lambda_bar = inputs%lambda_bar*inputs%gravity/SQRT(lumped)
     END IF
+    ! WRITE(*,*) 'this is min/max of mesh size ', MINVAL(SQRT(lumped)), MAXVAL(SQRT(lumped))
+    ! WRITE(*,*) 'this is avg min/max of mesh size ', (MINVAL(SQRT(lumped)) + MAXVAL(SQRT(lumped)))/2.d0
+    ! STOP
 
     DO i = 1, mesh%np
        rk(inputs%syst_size - 1, i) = rk(inputs%syst_size - 1, i) + lumped(i)*un(inputs%syst_size, i)*ratio(i)

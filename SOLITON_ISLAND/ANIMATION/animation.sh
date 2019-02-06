@@ -1,1 +1,3 @@
-ffmpeg -i $1-vid.%4d.png -vcodec h264  $1-vid.mp4
+ffmpeg -i 'movie.%03d.png' -vcodec h264 -filter:v "setpts=2.0*PTS" movie.mp4
+rm *.vtk
+rm *.png
