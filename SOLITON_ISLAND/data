@@ -13,7 +13,7 @@ cav_0.2.FEM
 ===Final time===
 13.
 ===CFL number===
-0.007d0
+0.006d0
 ===Mannings coefficient===
 0.0098
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
