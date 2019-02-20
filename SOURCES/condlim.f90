@@ -67,7 +67,7 @@ CONTAINS
           END DO
        END IF
     CASE DEFAULT
-       WRITE(*,*) ' BUG in flux'
+       WRITE(*,*) 'BUG in flux, case is not implemented'
        STOP
     END SELECT
   END FUNCTION flux
@@ -123,7 +123,6 @@ CONTAINS
              bath(i) = 0.d0
           END IF
        END DO
-
     CASE(13) !===Solitary wave
        inputs%gravity=10.d0
        bath = 0.d0
@@ -182,7 +181,9 @@ CONTAINS
        END DO
        bath = bath - h0 ! shift bath down by reference height
        !===Find Gauges
-       CALL seawall_gauges
+       IF (k_dim==1) THEN
+          CALL seawall_gauges
+       END IF
     CASE(17) !===Period Waves over bar
        inputs%gravity = 9.81d0
        h0 = 0.03d0
@@ -428,7 +429,6 @@ CONTAINS
              vv = 0.d0
           END IF
        END SELECT
-
     CASE(13) !===Solitary wave
        h1 = 10.d0
        h2 = 11.d0
@@ -463,47 +463,95 @@ CONTAINS
        c = SQRT(inputs%gravity * (1.d0 + a) * h0)
        x0 = - h0/slope - L/2.d0  ! initial location of solitary wave
 
-       SELECT CASE(k)
-       CASE(1) ! h water height
-          DO i = 1, SIZE(rr,2)
-             bathi = MAX((rr(1,i)) * slope, -h0)
-             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= a * h0 * sechSqd
-             vv(i) = MAX(htilde - bathi,1.d-14)
-          END DO
-
-       CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
-          DO i = 1, SIZE(rr,2)
-             bathi = MAX((rr(1,i) ) * slope, -h0)
-             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= a * h0 * sechSqd ! this is exact solitary wave
-             vv(i) = MAX(htilde-bathi,0.d0)
-             vv(i) =  vv(i) * c * htilde / (h0 + htilde)
-          END DO
-
-       CASE(3) ! eta*h component
-          IF (t.LE.1.d-14) THEN
+       IF (k_dim==2) THEN
+          SELECT CASE(k)
+          CASE(1) ! h water height
              DO i = 1, SIZE(rr,2)
                 bathi = MAX((rr(1,i)) * slope, -h0)
                 sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
                 htilde= a * h0 * sechSqd
-                vv(i) = MAX(htilde - bathi,0.d0)
-                vv(i) = vv(i) * vv(i)
+                vv(i) = MAX(htilde - bathi,1.d-14)
              END DO
-          END IF
-       CASE(4) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
-          IF (t.LE.1.d-14) THEN
+
+          CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
              DO i = 1, SIZE(rr,2)
                 bathi = MAX((rr(1,i) ) * slope, -h0)
                 sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-                htilde= a * h0 * sechSqd ! this is exact solution
-                hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
-                vv(i) = MAX(htilde - bathi,0.d0)
-                ! this is -waterHeight^2 * div(velocity)
-                vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+                htilde= a * h0 * sechSqd ! this is exact solitary wave
+                vv(i) = MAX(htilde-bathi,0.d0)
+                vv(i) =  vv(i) * c * htilde / (h0 + htilde)
              END DO
-          END IF
-       END SELECT
+
+          CASE(3) ! v*h component, just 0
+             vv =  0.d0
+
+          CASE(4) ! eta*h component
+             IF (t.LE.1.d-14) THEN
+                DO i = 1, SIZE(rr,2)
+                   bathi = MAX((rr(1,i)) * slope, -h0)
+                   sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                   htilde= a * h0 * sechSqd
+                   vv(i) = MAX(htilde - bathi,0.d0)
+                   vv(i) = vv(i) * vv(i)
+                END DO
+             END IF
+          CASE(5) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+             IF (t.LE.1.d-14) THEN
+                DO i = 1, SIZE(rr,2)
+                   bathi = MAX((rr(1,i) ) * slope, -h0)
+                   sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                   htilde= a * h0 * sechSqd ! this is exact solution
+                   hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+                   vv(i) = MAX(htilde - bathi,0.d0)
+                   ! this is -waterHeight^2 * div(velocity)
+                   vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+                END DO
+             END IF
+          END SELECT
+       END IF
+       IF (k_dim==1) THEN
+          SELECT CASE(k)
+          CASE(1) ! h water height
+             DO i = 1, SIZE(rr,2)
+                bathi = MAX((rr(1,i)) * slope, -h0)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd
+                vv(i) = MAX(htilde - bathi,1.d-14)
+             END DO
+
+          CASE(2) ! u*h component, u = c htilde/ (htilde + h0)
+             DO i = 1, SIZE(rr,2)
+                bathi = MAX((rr(1,i) ) * slope, -h0)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd ! this is exact solitary wave
+                vv(i) = MAX(htilde-bathi,0.d0)
+                vv(i) =  vv(i) * c * htilde / (h0 + htilde)
+             END DO
+
+          CASE(3) ! eta*h component
+             IF (t.LE.1.d-14) THEN
+                DO i = 1, SIZE(rr,2)
+                   bathi = MAX((rr(1,i)) * slope, -h0)
+                   sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                   htilde= a * h0 * sechSqd
+                   vv(i) = MAX(htilde - bathi,0.d0)
+                   vv(i) = vv(i) * vv(i)
+                END DO
+             END IF
+          CASE(4) ! w*h component of flow rate, which is -waterHeight^2 * div(velocity)
+             IF (t.LE.1.d-14) THEN
+                DO i = 1, SIZE(rr,2)
+                   bathi = MAX((rr(1,i) ) * slope, -h0)
+                   sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                   htilde= a * h0 * sechSqd ! this is exact solution
+                   hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+                   vv(i) = MAX(htilde - bathi,0.d0)
+                   ! this is -waterHeight^2 * div(velocity)
+                   vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+                END DO
+             END IF
+          END SELECT
+       END IF
     CASE(15) !===Steady state
        ! initial constants go here
        z  = 1.d0
@@ -570,37 +618,76 @@ CONTAINS
        !bath = bath - h0 ! shift bath down by reference height !BUG
        aux = aux - h0
 
-       SELECT CASE(k)
-       CASE(1) ! h water height
-          DO i = 1, SIZE(rr,2)
-             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde = a * h0 * sechSqd
-             vv(i) = MAX(htilde - aux(i),0.d0)
-          END DO
-       CASE(2) ! h*u component, u = c htilde/ (htilde + h0)
-          DO i = 1, SIZE(rr,2)
-             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= a * h0 * sechSqd ! this is exact solitary wave
-             vv(i) = MAX(htilde-aux(i),0.d0)
-             vv(i) =  vv(i) * c * htilde / (h0 + htilde)
-          END DO
-       CASE(3) ! h*eta component, eta = h
-          DO i = 1, SIZE(rr,2)
-             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= a * h0 * sechSqd
-             vv(i) = MAX(htilde - aux(i),0.d0)
-             vv(i) = vv(i) * vv(i)
-          END DO
-       CASE(4) ! h*w component of flow rate, which is -waterHeight^2 * div(velocity)
-          DO i = 1, SIZE(rr,2)
-             sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
-             htilde= a * h0 * sechSqd ! this is exact solution
-             hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
-             vv(i) = MAX(htilde - aux(i),0.d0)
-             ! this is -waterHeight^2 * div(velocity)
-             vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
-          END DO
-       END SELECT
+       IF (k_dim==2) THEN
+          SELECT CASE(k)
+          CASE(1) ! h water height
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde = a * h0 * sechSqd
+                vv(i) = MAX(htilde - aux(i),0.d0)
+             END DO
+          CASE(2) ! h*u component, u = c htilde/ (htilde + h0)
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd ! this is exact solitary wave
+                vv(i) = MAX(htilde-aux(i),0.d0)
+                vv(i) =  vv(i) * c * htilde / (h0 + htilde)
+             END DO
+
+          CASE(3) ! h*v component, v = 0
+             vv = 0.d0
+          CASE(4) ! h*eta component, eta = h
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd
+                vv(i) = MAX(htilde - aux(i),0.d0)
+                vv(i) = vv(i) * vv(i)
+             END DO
+          CASE(5) ! h*w component of flow rate, which is -waterHeight^2 * div(velocity)
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd ! this is exact solution
+                hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+                vv(i) = MAX(htilde - aux(i),0.d0)
+                ! this is -waterHeight^2 * div(velocity)
+                vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+             END DO
+          END SELECT
+       END IF
+
+       IF (k_dim==1) THEN
+          SELECT CASE(k)
+          CASE(1) ! h water height
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde = a * h0 * sechSqd
+                vv(i) = MAX(htilde - aux(i),0.d0)
+             END DO
+          CASE(2) ! h*u component, u = c htilde/ (htilde + h0)
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd ! this is exact solitary wave
+                vv(i) = MAX(htilde-aux(i),0.d0)
+                vv(i) =  vv(i) * c * htilde / (h0 + htilde)
+             END DO
+          CASE(3) ! h*eta component, eta = h
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd
+                vv(i) = MAX(htilde - aux(i),0.d0)
+                vv(i) = vv(i) * vv(i)
+             END DO
+          CASE(4) ! h*w component of flow rate, which is -waterHeight^2 * div(velocity)
+             DO i = 1, SIZE(rr,2)
+                sechSqd = (1.0d0/COSH( z*(rr(1,i)-x0-c*t)))**2.0d0
+                htilde= a * h0 * sechSqd ! this is exact solution
+                hTildePrime = -2.d0 * z * htilde * TANH(z*(rr(1,i)-x0-c*t))
+                vv(i) = MAX(htilde - aux(i),0.d0)
+                ! this is -waterHeight^2 * div(velocity)
+                vv(i) = -vv(i)**2 * (c * h0 * hTildePrime /(h0 + htilde)**2)
+             END DO
+          END SELECT
+       END IF
     CASE(17) !===Period waves over bar
        ! initial constants go here
        inputs%gravity = 9.81d0

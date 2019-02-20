@@ -7,7 +7,7 @@ mesh.FEM
 ===FGN?===(.t.,.f.),okay===
 .t.
 ===Want movie?===(.t.,.f.),okay===
-.f.
+.t.
 ===Lambda_bar?===
 1.d0
 ===Final time===

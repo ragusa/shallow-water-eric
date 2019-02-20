@@ -119,18 +119,20 @@ PROGRAM shallow_water
 
      SELECT CASE(inputs%type_test) !seawall gauges
      CASE(16)
-        IF (inputs%time.LE.inputs%dt) THEN
+        IF (k_dim==1) THEN
+           IF (inputs%time.LE.inputs%dt) THEN
+              DO n = 1, 7
+                 OPEN(60+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
+              END DO
+           END IF
            DO n = 1, 7
-              OPEN(60+n,FILE=TRIM(ADJUSTL(seawall_file(n))), FORM='formatted')
+              WRITE(60+n,*) inputs%time, &
+                   SUM(un(1,mesh%jj(:,seawall_m(n))) &
+                   * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n))), &
+                   SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
+                   * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n)))
            END DO
         END IF
-        DO n = 1, 7
-           WRITE(60+n,*) inputs%time, &
-                SUM(un(1,mesh%jj(:,seawall_m(n))) &
-                * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n))), &
-                SUM((un(1,mesh%jj(:,seawall_m(n)))+ bath(mesh%jj(:,seawall_m(n)))) &
-                * FE_interp_1d(mesh,seawall_m(n),seawall_rr(1,n)))
-        END DO
      CASE(17)
         IF (inputs%time.LE.inputs%dt) THEN
            DO n = 1, 8
@@ -149,8 +151,7 @@ PROGRAM shallow_water
 
      ! for plotting movies in 1D and 2D
      IF (inputs%want_movie) THEN
-        SELECT CASE(inputs%type_test)
-        CASE(14,15,16,17,18) ! 1D cases
+        IF (k_dim==1) THEN
            IF (0.d0 .LE. inputs%time) THEN
               IF (inputs%time.GE.t_frame-1.d-10) THEN
                  kit=kit+1
@@ -168,7 +169,7 @@ PROGRAM shallow_water
                  CALL plot_1d(mesh%rr(1,:), hmovie, header)
               END IF
            END IF
-        CASE(8) ! 2D cases
+        ELSE
            IF (0.d0 .LE. inputs%time) THEN
               IF (inputs%time.GE.t_frame-1.d-10) THEN
                  kit=kit+1
@@ -186,7 +187,7 @@ PROGRAM shallow_water
                  CALL vtk_2d(mesh, hmovie, 33, header)
               END IF
            END IF
-        END SELECT
+        END IF
      END IF
 
   END DO
@@ -225,12 +226,13 @@ PROGRAM shallow_water
      !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
      WRITE (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
      WRITE(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
-     CALL SYSTEM('./gnu_plot_runup.sh '//TRIM(test_name)//' '//TRIM(test_int))
+     IF (k_dim==1) THEN
+        CALL SYSTEM('./gnu_plot_runup.sh '//TRIM(test_name)//' '//TRIM(test_int))
+     END IF
   CASE(16)
-     !   !WRITE(*,*) INT(inputs%Tfinal*SQRT(inputs%gravity))
-     !   write (test_name, "(A5,I2,A4)") "t-", INT(inputs%Tfinal*SQRT(inputs%gravity)), ".txt"
-     !   write(test_int, "(I2)") INT(inputs%Tfinal*SQRT(inputs%gravity))
-     CALL SYSTEM('gnuplot -persist -p seawall.gnu')
+     IF (k_dim==1) THEN
+        CALL SYSTEM('gnuplot -persist -p seawall.gnu')
+     END IF
   CASE(15)
      CALL SYSTEM('gnuplot -persist -p steady.gnu')
   CASE(17)

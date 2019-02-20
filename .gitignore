@@ -14,3 +14,7 @@ lis_*
 *.gnu
 *.exe
 *.mod
+*.ele
+*.node
+*.edge
+*.neigh
