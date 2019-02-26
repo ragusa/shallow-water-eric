@@ -670,7 +670,7 @@ CONTAINS
     END SELECT
 
     IF (inputs%if_FGN) THEN
-       CALL FGN_rhs(un, rk)
+       CALL type1_FGN_rhs(un, rk)
     END IF
   END SUBROUTINE smb_1
 
@@ -1451,7 +1451,6 @@ CONTAINS
     IF (inputs%if_FGN) THEN
        CALL FGN_rhs(un, rk)
     END IF
-
   END SUBROUTINE smb_2
 
   SUBROUTINE FGN_rhs(un, rk)
@@ -1469,11 +1468,6 @@ CONTAINS
     eta = un(inputs%syst_size - 1, :)*compute_one_over_h(un(1, :))
     !RATIO 1 works best in max norm.
     ratio = 1!(2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny))**2
-    !IF (MINVAL(eta)<-1.d-14*inputs%max_water_h) THEN
-    !WRITE(*,*) 'eta negative', MINVAL(eta)
-    !STOP
-    !END IF
-    !eta_over_h = eta * compute_one_over_h(un(1,:))
 
     alpha = inputs%lambda_bar/(3*lumped) !1D
     IF (k_dim == 2) THEN
@@ -1496,9 +1490,6 @@ CONTAINS
     ELSE
        lambda_bar = inputs%lambda_bar*inputs%gravity/SQRT(lumped)
     END IF
-    ! WRITE(*,*) 'this is min/max of mesh size ', MINVAL(SQRT(lumped)), MAXVAL(SQRT(lumped))
-    ! WRITE(*,*) 'this is avg min/max of mesh size ', (MINVAL(SQRT(lumped)) + MAXVAL(SQRT(lumped)))/2.d0
-    ! STOP
 
     DO i = 1, mesh%np
        rk(inputs%syst_size - 1, i) = rk(inputs%syst_size - 1, i) + lumped(i)*un(inputs%syst_size, i)*ratio(i)
@@ -1512,5 +1503,81 @@ CONTAINS
     END DO
 
   END SUBROUTINE FGN_rhs
+
+  SUBROUTINE type1_FGN_rhs(un, rk)
+    USE mesh_handling
+    USE boundary_conditions
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(inputs%syst_size, mesh%np)  :: un
+    REAL(KIND=8), DIMENSION(inputs%syst_size, mesh%np), INTENT(OUT) :: rk
+    REAL(KIND=8), DIMENSION(mesh%np)  :: lambda_bar, eta, omega, &
+         htwo_Gammap, pp, alpha, eta_over_h, heta_gammap, h, ratio
+    REAL(KIND=8) :: mineta, x0, G0, Gp0, a, b, r
+    REAL(KIND=8) :: Hstarij, Hstarji, ratij, ratji, hetaStarij, hetaStarji, ppjstari, ppistarj
+
+    INTEGER :: i, j, k, p
+
+    h = un(1, :)
+    eta = un(inputs%syst_size - 1, :)*compute_one_over_h(un(1, :))
+    !RATIO 1 works best in max norm.
+    ratio = 1!(2.d0*un(inputs%syst_size-1,:)/(eta**2+h**2+inputs%htiny))**2
+
+    alpha = inputs%lambda_bar/(3*lumped) !1D
+    IF (k_dim == 2) THEN
+       alpha = inputs%lambda_bar/(3*SQRT(lumped)) !1D
+    END IF
+
+    DO i = 1, mesh%np
+       IF (eta(i) .LE. h(i)) THEN
+          ! pp(i) = -alpha(i)*inputs%gravity*6*h(i)*(un(inputs%syst_size - 1, i) - h(i)**2)
+          htwo_Gammap(i) = 6*(un(inputs%syst_size - 1, i) - h(i)**2)
+       ELSE
+          ! pp(i) = -alpha(i)*inputs%gravity*2*(eta(i)**3 - h(i)**3)
+          htwo_Gammap(i) = 6*(eta(i)**2 - un(inputs%syst_size - 1, i))
+       END IF
+    END DO
+
+    IF (k_dim == 1) THEN
+       lambda_bar = inputs%lambda_bar*inputs%gravity/lumped
+    ELSE
+       lambda_bar = inputs%lambda_bar*inputs%gravity/SQRT(lumped)
+    END IF
+
+    DO i = 1, mesh%np
+       rk(inputs%syst_size - 1, i) = rk(inputs%syst_size - 1, i) + lumped(i)*un(inputs%syst_size, i)*ratio(i)
+       rk(inputs%syst_size, i) = rk(inputs%syst_size, i) - lumped(i)*lambda_bar(i)*htwo_Gammap(i)*ratio(i)
+       DO p = mass%ia(i), mass%ia(i + 1) - 1
+          j = mass%ja(p)
+          !
+          Hstarij = MAX(0.d0, un(1, i) + bath(i) - MAX(bath(i), bath(j)))
+          Hstarji = MAX(0.d0, un(1, j) + bath(j) - MAX(bath(i), bath(j)))
+          ratij = Hstarij/un(1, i)
+          ratji = Hstarji/un(1, j)
+          IF (un(1, i) .LE. inputs%htiny) THEN !Important for long-time WB
+             ratij = 0.d0
+             ratji = 0.d0
+          ELSE
+             ratij = Hstarij/un(1, i)
+          END IF
+          IF (un(1, j) .LE. inputs%htiny) THEN !Important for long-time WB
+             ratji = 0.d0
+             ratij = 0.d0
+          ELSE
+             ratji = Hstarji/un(1, j)
+          END IF
+          hetaStarij = un(inputs%syst_size - 1,i) * ratij
+          hetaStarji = un(inputs%syst_size - 1,j) * ratji
+          !
+          IF (eta(i) .LE. h(i)) THEN
+             pp(i) = -alpha(i)*inputs%gravity*6*h(i)*(un(inputs%syst_size - 1, i) - h(i)**2)
+          ELSE
+             pp(i) = -alpha(i)*inputs%gravity*2*(eta(i)**3 - h(i)**3)
+          END IF
+          DO k = 1, k_dim
+             rk(k + 1, i) = rk(k + 1, i) - (ppjstari + ppistarj)*cij(k)%aa(p)
+          END DO
+       END DO
+    END DO
+  END SUBROUTINE type1_FGN_rhs
 
 END MODULE update
