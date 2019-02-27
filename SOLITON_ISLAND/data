@@ -1,7 +1,7 @@
 ===Name of directory for mesh file===
 '.'
 ===Name of mesh file===
-cav_0.5.FEM
+cav_0.2.FEM
 ===Test case number===
 8
 ===FGN?===(.t.,.f.),okay===
@@ -13,7 +13,7 @@ cav_0.5.FEM
 ===Final time===
 13.
 ===CFL number===
-0.0095d0
+0.01d0
 ===Mannings coefficient===
 0.0098
 ===Viscosity type (galerkin, viscous, entropy_visc, fct)===
